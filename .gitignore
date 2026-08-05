@@ -2,33 +2,37 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
+
 .utmp/
-/[Ll]ibrary/
-/[Tt]emp/
-/[Oo]bj/
-/[Bb]uild/
-/[Bb]uilds/
-/[Ll]ogs/
-/[Uu]ser[Ss]ettings/
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+[Aa]ssets/_Recovery/
+
 *.log
 
 # Blender
 *.blend1
 *.blend1.meta
 
-# MemoryCaptures y Recordings pueden ser muy pesados
-/[Mm]emoryCaptures/
-/[Rr]ecordings/
-
 # Uncomment this line if you wish to ignore the asset store tools plugin
-# /[Aa]ssets/AssetStoreTools*
+#[Aa]ssets/AssetStoreTools*
 
 # JetBrains Rider
-/[Aa]ssets/Plugins/Editor/JetBrains*
+[Aa]ssets/Plugins/Editor/JetBrains*
 *.DotSettings.user
 
 # Visual Studio
 .vs/
+.vsconfig
 .gradle/
 
 # Archivos de solución y proyecto autogenerados
@@ -65,10 +69,6 @@ mono_crash.*
 *.unitypackage
 *.unitypackage.meta
 *.app
-
-# ── ESPECÍFICO DE ESTE PROYECTO ───────────────────────────────────────────────
-
-# Carpeta de ejecutables del build local
 EXE/
 *.exe
 
@@ -79,23 +79,21 @@ crashlytics-build.properties
 InitTestScene*.unity*
 
 # Addressables
-/ServerData
-/[Aa]ssets/StreamingAssets/aa*
-/[Aa]ssets/AddressableAssetsData/link.xml*
-/[Aa]ssets/Addressables_Temp*
-/[Aa]ssets/AddressableAssetsData/*/*.bin*
+ServerData/
+[Aa]ssets/StreamingAssets/aa*
+[Aa]ssets/AddressableAssetsData/link.xml*
+[Aa]ssets/Addressables_Temp*
+[Aa]ssets/AddressableAssetsData/*/*.bin*
 
 # Visual Scripting
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
-/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
+[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
+[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
+[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
+[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
 
 # Auto-generated
-/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
-/[Aa]ssets/[Ss]ceneDependencyCache*
-
-# ── SISTEMA OPERATIVO ─────────────────────────────────────────────────────────
+[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+[Aa]ssets/[Ss]ceneDependencyCache*
 
 # Windows
 Thumbs.db
