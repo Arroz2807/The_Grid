@@ -28,8 +28,9 @@ public class LightCycleController : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float ghostDarkenFactor = 0.4f;
 
-    // Evento estático: cualquier interesado (GameManager, DeathExplosionSpawner)
-    // puede suscribirse sin que LightCycleController necesite conocerlos.
+    // Evento estático: cualquier interesado (GameManager, DeathExplosionSpawner,
+    // GameOverController) puede suscribirse sin que LightCycleController
+    // necesite conocerlos.
     public static event Action<LightCycleController> OnAnyPlayerDied;
 
     private IDirectionInputProvider inputProvider;
@@ -39,7 +40,17 @@ public class LightCycleController : MonoBehaviour
     private Color ghostColor;
 
     private Vector2Int currentCell;
+
+    // direction: la dirección CONFIRMADA, con la que el jugador se está
+    // moviendo ahora mismo — sólo cambia dentro de Step().
     private Vector2Int direction;
+
+    // queuedDirection: la dirección que se va a confirmar en el próximo
+    // Step(). Cada giro nuevo se calcula a partir de "direction" (nunca a
+    // partir de queuedDirection), así que no importa cuántos giros lleguen
+    // antes del próximo paso: nunca se acumulan entre sí.
+    private Vector2Int queuedDirection;
+
     private float moveTimer;
     private bool isAlive = true;
     private bool trailEnabled = true;
@@ -54,11 +65,6 @@ public class LightCycleController : MonoBehaviour
         {
             normalColor = spriteRenderer.color;
 
-            // El color fantasma no es un color aparte elegido a mano: se
-            // calcula a partir del color propio del jugador, oscurecido.
-            // Así, si cada jugador termina teniendo su propio color (por
-            // ejemplo pensando en multijugador), cada uno tiene su propio
-            // tono de "fantasma" automáticamente, sin configurar nada más.
             ghostColor = new Color(
                 normalColor.r * ghostDarkenFactor,
                 normalColor.g * ghostDarkenFactor,
@@ -79,6 +85,7 @@ public class LightCycleController : MonoBehaviour
     {
         currentCell = startCell;
         direction = startDirection;
+        queuedDirection = startDirection;
 
         transform.localScale = Vector3.one * gridManager.CellSize;
         transform.position = gridManager.GridToWorld(currentCell);
@@ -109,9 +116,21 @@ public class LightCycleController : MonoBehaviour
         TurnInput turn = inputProvider.GetTurnInput();
         if (turn == TurnInput.None) return;
 
-        direction = turn == TurnInput.Left
+        Vector2Int candidateDirection = turn == TurnInput.Left
             ? RotateLeft(direction)
             : RotateRight(direction);
+
+        // Comparamos contra "direction" (la última dirección YA
+        // CONFIRMADA por un Step()), nunca contra "queuedDirection". Si
+        // comparáramos contra queuedDirection, dos giros de 90° pedidos
+        // dentro del mismo intervalo de movimiento —antes de que el
+        // próximo Step() confirme el primero— se irían acumulando entre
+        // sí y podrían terminar formando un giro de 180° sin que el
+        // jugador se haya movido siquiera una celda.
+        if (candidateDirection != -direction)
+        {
+            queuedDirection = candidateDirection;
+        }
     }
 
     private void HandleTrailToggleInput()
@@ -133,6 +152,12 @@ public class LightCycleController : MonoBehaviour
 
     private void Step()
     {
+        // Recién acá, en el momento exacto del paso, la dirección en cola
+        // pasa a ser la dirección confirmada. Todo giro pedido antes de
+        // este punto se evaluó siempre contra esta misma dirección, nunca
+        // contra otro giro pendiente.
+        direction = queuedDirection;
+
         Vector2Int nextCell = currentCell + direction;
 
         if (!gridManager.IsInsideGrid(nextCell) || gridManager.IsCellOccupied(nextCell))
