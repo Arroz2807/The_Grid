@@ -1,43 +1,46 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Muestra el panel de Game Over cuando un jugador muere, y traduce sus
-/// botones (Reintentar, Volver al menú) en acciones concretas. Vive en la
-/// escena del juego, no en una escena aparte. Igual que GameManager y
-/// DeathExplosionSpawner, es un oyente más de
-/// LightCycleController.OnAnyPlayerDied, completamente independiente de
-/// los otros dos — incluido el hecho de que este demore su reacción unos
-/// segundos no afecta en nada a los demás oyentes del mismo evento.
+/// Muestra el panel de fin de partida cuando GameManager avisa que la
+/// partida terminó — ya no escucha la muerte de entidades directamente,
+/// sólo la conclusión ya decidida por el árbitro. Su única responsabilidad
+/// es de presentación: qué texto mostrar y cuándo revelar el panel, nunca
+/// decidir si se ganó o se perdió.
 /// </summary>
 public class GameOverController : MonoBehaviour
 {
-    [Tooltip("Panel de Game Over completo (título, botones, estadísticas). Debe empezar inactivo en la escena.")]
+    [Tooltip("Panel de fin de partida completo. Debe empezar inactivo en la escena.")]
     [SerializeField] private GameObject gameOverPanel;
+
+    [Tooltip("Texto del título del panel — se sobreescribe con VICTORIA o DERROTA según corresponda.")]
+    [SerializeField] private TMP_Text titleText;
 
     [Tooltip("Segundos de espera antes de mostrar el panel, para no tapar la explosión de partículas.")]
     [SerializeField] private float panelRevealDelay = 1f;
 
-    private bool gameOverTriggered;
+    private bool matchEndTriggered;
 
     private void OnEnable()
     {
-        LightCycleController.OnAnyPlayerDied += HandlePlayerDied;
+        GameManager.OnMatchEnded += HandleMatchEnded;
     }
 
     private void OnDisable()
     {
-        LightCycleController.OnAnyPlayerDied -= HandlePlayerDied;
+        GameManager.OnMatchEnded -= HandleMatchEnded;
     }
 
-    private void HandlePlayerDied(LightCycleController player)
+    private void HandleMatchEnded(bool playerWon)
     {
-        // Guard simple: si el evento llegara a dispararse más de una vez
-        // (por ejemplo, más adelante con varios jugadores), no queremos
-        // apilar corrutinas ni reiniciar la cuenta regresiva a mitad de
-        // camino.
-        if (gameOverTriggered) return;
-        gameOverTriggered = true;
+        if (matchEndTriggered) return;
+        matchEndTriggered = true;
+
+        if (titleText != null)
+        {
+            titleText.text = playerWon ? "Victory" : "Game Over";
+        }
 
         StartCoroutine(ShowPanelAfterDelay());
     }
@@ -50,24 +53,13 @@ public class GameOverController : MonoBehaviour
         {
             gameOverPanel.SetActive(true);
         }
-
-        // Acá es donde, más adelante, se completarían las estadísticas de
-        // la partida (tiempo sobrevivido, celdas recorridas, etc.) antes
-        // o al momento de mostrar el panel.
     }
 
-    /// <summary>
-    /// Asignado al botón "Reintentar". Recargar la escena actual —en vez
-    /// de resetear el estado a mano— da un reinicio 100% limpio, gratis.
-    /// </summary>
     public void OnRetryButtonClicked()
     {
         SceneLoader.Load(SceneNames.Game);
     }
 
-    /// <summary>
-    /// Asignado al botón "Volver al menú".
-    /// </summary>
     public void OnMainMenuButtonClicked()
     {
         SceneLoader.Load(SceneNames.MainMenu);

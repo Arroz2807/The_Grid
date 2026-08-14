@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4006482884392615456}
   - component: {fileID: 6528625299756545004}
   - component: {fileID: 8431291819976545682}
+  - component: {fileID: 4484882807114646343}
   m_Layer: 0
   m_Name: LightCycle_Player
   m_TagString: Player
@@ -80,7 +81,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 0, g: 0.8117647, b: 1, a: 1}
@@ -104,3 +105,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f878795f48715dc4cbc5260a51aaef6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LightCycleController
+  gridManager: {fileID: 0}
+  trailManager: {fileID: 0}
+  moveInterval: 0.15
+  startCell: {x: 8, y: 2}
+  startDirection: {x: 0, y: 1}
+  ghostDarkenFactor: 0.4
+  trailDarkenFactor: 0.7
+--- !u!114 &4484882807114646343
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9154952963662904437}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bb9b2962561dea459f5dc66106ede17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KeyboardInputProvider
+  trailToggleKey: 113

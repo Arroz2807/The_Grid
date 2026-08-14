@@ -4,8 +4,8 @@ using UnityEngine;
 /// Única fuente de verdad sobre el estado de la grilla: dimensiones, tamaño
 /// de celda, y qué celdas están ocupadas. No sabe nada de jugadores, del
 /// rastro, ni de cómo se dibuja nada — solo responde preguntas sobre la
-/// grilla. Esto la hace reutilizable por cualquier sistema futuro (IA,
-/// power-ups, obstáculos) sin acoplarla a un jugador en particular.
+/// grilla. Esto la hace reutilizable por cualquier sistema (jugador, IA,
+/// futuros power-ups u obstáculos) sin acoplarla a una entidad en particular.
 /// </summary>
 public class GridManager : MonoBehaviour
 {
@@ -19,35 +19,22 @@ public class GridManager : MonoBehaviour
     [Tooltip("Tamaño de una celda en unidades de mundo de Unity.")]
     [SerializeField] private float cellSize = 1f;
 
-    // Grilla lógica de ocupación. true = la celda está bloqueada (por rastro).
-    // Los límites del mapa se resuelven aparte, con IsInsideGrid, así que este
-    // array solo necesita preocuparse por lo que hay ADENTRO de la grilla.
+    // Grilla lógica de ocupación. true = la celda está bloqueada — ya sea
+    // por rastro permanente, o porque una entidad viva está parada ahí en
+    // este momento. Este array no distingue entre esos dos casos a
+    // propósito: para la pregunta "¿puedo entrar acá?", da exactamente lo
+    // mismo por qué está ocupada.
     private bool[,] occupiedCells;
 
-    // Propiedades de solo lectura: cualquier otra clase puede LEER estos
-    // valores (por ejemplo, para escalar un prefab según cellSize), pero
-    // solo GridManager puede modificarlos. Esto evita que otra clase
-    // desincronice el tamaño de la grilla "por accidente".
     public int Columns => columns;
     public int Rows => rows;
     public float CellSize => cellSize;
 
     private void Awake()
     {
-        // El array se crea recién acá, leyendo los valores que hayas puesto
-        // en el Inspector. Si cambiás columns/rows antes de darle Play, el
-        // array se adapta solo — no hay ningún número de grilla hardcodeado
-        // en el código.
         occupiedCells = new bool[columns, rows];
     }
 
-    /// <summary>
-    /// Convierte una coordenada de grilla (por ejemplo, celda (3,5)) en una
-    /// posición de mundo, ubicada en el CENTRO de esa celda. Usamos la
-    /// posición del propio transform de GridManager como origen de la
-    /// grilla: así podés mover el GameObject GridManager en la escena y
-    /// toda la grilla se mueve con él, sin tocar código.
-    /// </summary>
     public Vector3 GridToWorld(Vector2Int cell)
     {
         float worldX = cell.x * cellSize + cellSize * 0.5f;
@@ -55,22 +42,11 @@ public class GridManager : MonoBehaviour
         return transform.position + new Vector3(worldX, worldY, 0f);
     }
 
-    /// <summary>
-    /// True si la coordenada cae dentro de los límites de la grilla.
-    /// Salir de este rango es, para el jugador, chocar contra la pared.
-    /// </summary>
     public bool IsInsideGrid(Vector2Int cell)
     {
         return cell.x >= 0 && cell.x < columns && cell.y >= 0 && cell.y < rows;
     }
 
-    /// <summary>
-    /// True si la celda está dentro de la grilla Y marcada como ocupada.
-    /// Una celda fuera de la grilla NO se considera "ocupada" acá — ese caso
-    /// ya lo cubre IsInsideGrid, y las llamamos por separado para poder
-    /// distinguir en el futuro entre "moriste por pared" y "moriste por
-    /// rastro" si quisieras un mensaje distinto para cada caso.
-    /// </summary>
     public bool IsCellOccupied(Vector2Int cell)
     {
         if (!IsInsideGrid(cell)) return false;
@@ -78,8 +54,10 @@ public class GridManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Marca una celda como ocupada. La llama TrailManager cada vez que un
-    /// ciclo de luz deja una sección de rastro atrás.
+    /// Marca una celda como ocupada. La llama LightCycleController tanto
+    /// al aparecer en su celda inicial como al entrar a cada celda nueva
+    /// — con rastro encendido o apagado, siempre: una entidad viva ocupa
+    /// físicamente el lugar donde está parada.
     /// </summary>
     public void SetCellOccupied(Vector2Int cell)
     {
@@ -87,10 +65,19 @@ public class GridManager : MonoBehaviour
         occupiedCells[cell.x, cell.y] = true;
     }
 
+    /// <summary>
+    /// Libera una celda. Se usa únicamente cuando una entidad abandona una
+    /// celda CON el rastro apagado — si el rastro está encendido, la celda
+    /// debe seguir ocupada para siempre, así que esto nunca se llama en
+    /// ese caso.
+    /// </summary>
+    public void ClearCellOccupied(Vector2Int cell)
+    {
+        if (!IsInsideGrid(cell)) return;
+        occupiedCells[cell.x, cell.y] = false;
+    }
+
 #if UNITY_EDITOR
-    // Dibuja la grilla en la vista de Escena (no en el juego) para que
-    // puedas ver de un vistazo dónde caen los límites, sin tener que darle
-    // Play. Solo se compila en el Editor, así que no afecta el build final.
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.gray;

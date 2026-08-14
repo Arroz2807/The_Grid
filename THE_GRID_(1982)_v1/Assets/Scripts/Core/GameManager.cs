@@ -1,53 +1,186 @@
 using UnityEngine;
 
 /// <summary>
-/// Reacciona al fin de la partida de un jugador. Se suscribe al evento
-/// estático de LightCycleController en vez de que LightCycleController lo
-/// llame directamente — así, LightCycleController no necesita saber que
-/// GameManager existe.
+/// Es el árbitro de la partida: instancia al jugador y a los enemigos que
+/// indique MatchConfig, y decide qué significa que alguien haya muerto
+/// (derrota si es el jugador; un enemigo menos si no, y victoria si era
+/// el último).
 /// </summary>
 public class GameManager : MonoBehaviour
 {
     [SerializeField] private GameObject playerPrefab;
+    [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GridManager gridManager;
     [SerializeField] private TrailManager trailManager;
 
+    public static event System.Action<bool> OnMatchEnded;
+
+    private int aliveEnemyCount;
+
     private void OnEnable()
     {
-        LightCycleController.OnAnyPlayerDied += HandlePlayerDied;
+        LightCycleController.OnAnyPlayerDied += HandleEntityDied;
     }
 
     private void OnDisable()
     {
-        // Desuscribirse es tan importante como suscribirse: si no lo
-        // hacés, un GameManager destruido (por ejemplo, al cambiar de
-        // escena) puede seguir "escuchando" el evento y causar errores de
-        // referencia nula. Es uno de los errores más comunes con eventos
-        // en C#/Unity.
-        LightCycleController.OnAnyPlayerDied -= HandlePlayerDied;
+        LightCycleController.OnAnyPlayerDied -= HandleEntityDied;
     }
 
     private void Start()
     {
         GameObject playerInstance = Instantiate(playerPrefab);
-        LightCycleController controller = playerInstance.GetComponent<LightCycleController>();
 
-        // GameManager es quien conoce a GridManager y TrailManager (los
-        // tiene asignados en su propio Inspector), y se los "inyecta" al
-        // jugador recién creado. Esto evita depender de que el prefab
-        // tenga esas referencias precargadas, lo cual sería frágil en
-        // cuanto instancies más de un jugador.
-        // Nota: para que esta línea compile, las referencias privadas
-        // gridManager/trailManager de LightCycleController necesitan un
-        // método público de inicialización — lo agregamos abajo.
-        controller.Initialize(gridManager, trailManager);
+        LightCycleController playerController =
+            playerInstance.GetComponent<LightCycleController>();
+
+        playerController.Initialize(
+            gridManager,
+            trailManager,
+            isPlayer: true
+        );
+
+        SpawnEnemies(playerController);
     }
 
-    private void HandlePlayerDied(LightCycleController player)
+    private void SpawnEnemies(LightCycleController playerController)
     {
-        Debug.Log($"GameManager: la partida terminó. Perdió {player.name}.");
+        var types = MatchConfig.EnemyTypes;
 
-        // Futuro: acá va a ir mostrar un panel de Game Over, detener el
-        // tiempo, calcular puntaje, etc.
+        for (int i = 0; i < types.Count; i++)
+        {
+            SpawnEnemy(i, types[i], playerController);
+        }
+    }
+
+    private void SpawnEnemy(
+        int index,
+        EnemyType type,
+        LightCycleController playerController)
+    {
+        GameObject enemyInstance = Instantiate(enemyPrefab);
+
+        LightCycleController enemyController =
+            enemyInstance.GetComponent<LightCycleController>();
+
+        // Se pisa la posición inicial ANTES de Initialize/Start.
+        // Esto permite que cada enemigo aparezca en una posición diferente.
+        enemyController.SetStartPosition(
+            GetEnemySpawnCell(index),
+            GetEnemySpawnDirection(index)
+        );
+
+        enemyController.Initialize(
+            gridManager,
+            trailManager,
+            isPlayer: false
+        );
+
+        // Asigna el color correspondiente al tipo de enemigo.
+        // LightCycleController se encarga de calcular automáticamente
+        // el color normal, el color oscurecido y el color del rastro.
+        enemyController.SetColor(
+            GetEnemyColor(type)
+        );
+
+        EnemyBrain enemyBrain =
+            enemyInstance.GetComponent<EnemyBrain>();
+
+        // El objetivo, por ahora, siempre es el jugador.
+        // El comportamiento concreto depende del EnemyType.
+        enemyBrain.Initialize(
+            gridManager,
+            EnemyBehaviorFactory.Create(type),
+            playerController
+        );
+
+        aliveEnemyCount++;
+    }
+
+    /// <summary>
+    /// Devuelve el color correspondiente al tipo de enemigo.
+    /// Este color se asigna al LightCycleController y, a partir de ahí,
+    /// también se utiliza para generar el rastro y la explosión de muerte
+    /// con el mismo color.
+    /// </summary>
+    private Color GetEnemyColor(EnemyType type)
+    {
+        switch (type)
+        {
+            case EnemyType.Chase:
+                return Color.red;
+
+            case EnemyType.Predict:
+                return Color.green;
+
+            case EnemyType.Ambush:
+                return Color.magenta;
+
+            case EnemyType.Random:
+                return Color.yellow;
+
+            default:
+                return Color.white;
+        }
+    }
+
+    // Reparte hasta 4 enemigos cerca de las esquinas de la grilla,
+    // calculadas a partir de Columns/Rows — nunca con números fijos, para
+    // que siga funcionando sin importar el tamaño de grilla configurado.
+    private Vector2Int GetEnemySpawnCell(int index)
+    {
+        const int margin = 2;
+
+        int maxX = gridManager.Columns - 1 - margin;
+        int maxY = gridManager.Rows - 1 - margin;
+
+        switch (index)
+        {
+            case 0:
+                return new Vector2Int(margin, margin);
+
+            case 1:
+                return new Vector2Int(maxX, margin);
+
+            case 2:
+                return new Vector2Int(margin, maxY);
+
+            default:
+                return new Vector2Int(maxX, maxY);
+        }
+    }
+
+    private Vector2Int GetEnemySpawnDirection(int index)
+    {
+        return index < 2
+            ? Vector2Int.up
+            : Vector2Int.down;
+    }
+
+    private void HandleEntityDied(LightCycleController died)
+    {
+        if (died.IsPlayer)
+        {
+            EndMatch(playerWon: false);
+            return;
+        }
+
+        aliveEnemyCount--;
+
+        if (aliveEnemyCount <= 0)
+        {
+            EndMatch(playerWon: true);
+        }
+    }
+
+    private void EndMatch(bool playerWon)
+    {
+        Debug.Log(
+            playerWon
+                ? "GameManager: victoria — todos los enemigos fueron eliminados."
+                : "GameManager: derrota — el jugador chocó."
+        );
+
+        OnMatchEnded?.Invoke(playerWon);
     }
 }

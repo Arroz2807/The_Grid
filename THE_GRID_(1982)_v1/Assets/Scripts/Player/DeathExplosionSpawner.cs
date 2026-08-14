@@ -2,10 +2,10 @@ using UnityEngine;
 
 /// <summary>
 /// Instancia una explosión de partículas en el lugar donde murió un
-/// jugador. Se suscribe al evento estático de LightCycleController — igual
-/// que hace GameManager — así que no necesita ninguna referencia directa a
-/// LightCycleController, ni viceversa: es un oyente más, completamente
-/// independiente.
+/// jugador, con el color de rastro de esa entidad. Se suscribe al evento
+/// estático de LightCycleController — igual que hace GameManager — así
+/// que no necesita ninguna referencia directa a LightCycleController, ni
+/// viceversa: es un oyente más, completamente independiente.
 /// </summary>
 public class DeathExplosionSpawner : MonoBehaviour
 {
@@ -26,10 +26,6 @@ public class DeathExplosionSpawner : MonoBehaviour
     {
         if (explosionPrefab == null)
         {
-            // Si esto llega a aparecer en la consola, el campo Explosion
-            // Prefab quedó sin asignar (por ejemplo, después de tocar el
-            // script) — es la explicación más simple si algún día vuelve a
-            // fallar por completo, no sólo a veces.
             Debug.LogWarning("DeathExplosionSpawner: no hay ningún prefab asignado en 'Explosion Prefab'.");
             return;
         }
@@ -37,14 +33,12 @@ public class DeathExplosionSpawner : MonoBehaviour
         ParticleSystem instance = Instantiate(explosionPrefab, player.transform.position, Quaternion.identity);
         instance.transform.localScale = player.transform.localScale;
 
-        // Se llama a Play() de forma explícita en vez de confiar
-        // únicamente en "Play On Awake" del prefab: así el disparo de la
-        // explosión no depende de que ese casillero del Inspector esté
-        // tildado correctamente, y es determinístico sin importar el
-        // estado del prefab.
-        instance.Play();
+        // Tintamos la explosión con el mismo color oscurecido que usa el
+        // rastro de quien murió, en vez del color fijo que traía el
+        // prefab — así cada entidad explota con SU propio color.
+        ParticleSystem.MainModule main = instance.main;
+        main.startColor = player.TrailColor;
 
-        // No hace falta destruir el GameObject a mano: el prefab tiene
-        // Stop Action = Destroy configurado en el Inspector.
+        instance.Play();
     }
 }

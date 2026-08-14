@@ -1,21 +1,29 @@
 using UnityEngine;
 
 /// <summary>
-/// Traduce los clicks de los botones del menú principal en acciones
-/// concretas. Es deliberadamente chica y "tonta": no decide CÓMO se carga
-/// una escena ni CÓMO se cierra la aplicación (eso es responsabilidad de
-/// SceneLoader) — sólo sabe qué botón de ESTE menú corresponde a qué
-/// acción. El día que exista un menú de pausa o de Game Over, cada uno va
-/// a tener su propio manager igual de chico, reusando el mismo SceneLoader.
-///
-/// Los métodos son públicos y sin parámetros a propósito: son los que se
-/// asignan desde el Inspector en el evento OnClick() de cada botón, y ese
-/// mecanismo de Unity sólo lista métodos públicos sin parámetros (o con un
-/// único parámetro de tipo simple) como opciones disponibles.
+/// Punto único de navegación del menú principal: qué panel se muestra y
+/// cuándo se pasa a la escena de juego. No construye contenido de UI (eso
+/// es EnemySelectionMenu) ni sabe cómo se carga una escena (eso es
+/// SceneLoader) — sólo decide el flujo entre pantallas.
 /// </summary>
 public class MainMenuManager : MonoBehaviour
 {
+    [SerializeField] private GameObject mainMenuPanel;
+    [SerializeField] private GameObject enemySelectionPanel;
+
     public void OnPlayButtonClicked()
+    {
+        mainMenuPanel.SetActive(false);
+        enemySelectionPanel.SetActive(true);
+    }
+
+    public void OnBackFromSelectionButtonClicked()
+    {
+        enemySelectionPanel.SetActive(false);
+        mainMenuPanel.SetActive(true);
+    }
+
+    public void OnStartMatchButtonClicked()
     {
         SceneLoader.Load(SceneNames.Game);
     }

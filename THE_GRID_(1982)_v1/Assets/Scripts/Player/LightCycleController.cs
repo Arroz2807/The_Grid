@@ -7,8 +7,13 @@ using UnityEngine;
 /// GridManager si el camino está libre; si no lo está, muere. No sabe cómo
 /// se guarda la ocupación de la grilla ni cómo se dibuja el rastro — solo
 /// pide esas cosas a través de referencias a GridManager y TrailManager.
+///
+/// Esta clase la usan tanto el jugador como cada enemigo: no sabe ni le
+/// importa si su IDirectionInputProvider es un teclado o una IA. Sí sabe
+/// (porque se lo dicen al crearla) si es la entidad controlada por el
+/// jugador humano — únicamente para exponerlo, nunca para comportarse
+/// distinto por eso.
 /// </summary>
-[RequireComponent(typeof(KeyboardInputProvider))]
 public class LightCycleController : MonoBehaviour
 {
     [Header("Dependencias")]
@@ -28,57 +33,117 @@ public class LightCycleController : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float ghostDarkenFactor = 0.4f;
 
-    // Evento estático: cualquier interesado (GameManager, DeathExplosionSpawner,
-    // GameOverController) puede suscribirse sin que LightCycleController
-    // necesite conocerlos.
+    [Tooltip("Qué tan oscuro es el rastro (y la explosión al morir) respecto al color propio. 1 = igual de brillante, 0 = negro.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float trailDarkenFactor = 0.7f;
+
     public static event Action<LightCycleController> OnAnyPlayerDied;
+
+    public event Action OnCellEntered;
 
     private IDirectionInputProvider inputProvider;
     private ITrailToggleInputProvider trailToggleInput;
     private SpriteRenderer spriteRenderer;
+
     private Color normalColor;
     private Color ghostColor;
+    private Color trailColor;
 
     private Vector2Int currentCell;
-
-    // direction: la dirección CONFIRMADA, con la que el jugador se está
-    // moviendo ahora mismo — sólo cambia dentro de Step().
     private Vector2Int direction;
-
-    // queuedDirection: la dirección que se va a confirmar en el próximo
-    // Step(). Cada giro nuevo se calcula a partir de "direction" (nunca a
-    // partir de queuedDirection), así que no importa cuántos giros lleguen
-    // antes del próximo paso: nunca se acumulan entre sí.
     private Vector2Int queuedDirection;
 
     private float moveTimer;
     private bool isAlive = true;
     private bool trailEnabled = true;
+    private bool isPlayer;
+
+    public Vector2Int CurrentCell => currentCell;
+    public Vector2Int Direction => direction;
+    public Color TrailColor => trailColor;
+
+    /// <summary>
+    /// True si esta instancia es la entidad controlada por el jugador
+    /// humano. GameManager es quien lo decide y lo asigna en Initialize()
+    /// — esta clase nunca lo infiere por su cuenta (por ejemplo, mirando
+    /// qué IDirectionInputProvider tiene), para no acoplar "quién soy" a
+    /// "cómo me controlan", que son cosas conceptualmente distintas.
+    /// </summary>
+    public bool IsPlayer => isPlayer;
 
     private void Awake()
     {
         inputProvider = GetComponent<IDirectionInputProvider>();
         trailToggleInput = GetComponent<ITrailToggleInputProvider>();
 
+        if (inputProvider == null || trailToggleInput == null)
+        {
+            Debug.LogError($"{name}: falta un componente que implemente IDirectionInputProvider y ITrailToggleInputProvider (por ejemplo, KeyboardInputProvider o EnemyBrain). Desactivando este objeto.");
+            enabled = false;
+            return;
+        }
+
         spriteRenderer = GetComponent<SpriteRenderer>();
+
         if (spriteRenderer != null)
         {
             normalColor = spriteRenderer.color;
-
-            ghostColor = new Color(
-                normalColor.r * ghostDarkenFactor,
-                normalColor.g * ghostDarkenFactor,
-                normalColor.b * ghostDarkenFactor,
-                normalColor.a);
+            ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
+            trailColor = DarkenColor(normalColor, trailDarkenFactor);
         }
     }
 
-    // Llamado por GameManager inmediatamente después de instanciar este
-    // jugador. Ver GameManager.Start().
-    public void Initialize(GridManager grid, TrailManager trail)
+    private static Color DarkenColor(Color color, float factor)
+    {
+        return new Color(
+            color.r * factor,
+            color.g * factor,
+            color.b * factor,
+            color.a
+        );
+    }
+
+    /// <summary>
+    /// Asigna el color propio de esta entidad y recalcula los colores derivados:
+    /// color normal, color con el rastro apagado y color del rastro/explosión.
+    /// GameManager lo llama al crear cada enemigo.
+    /// </summary>
+    public void SetColor(Color color)
+    {
+        normalColor = color;
+        ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
+        trailColor = DarkenColor(normalColor, trailDarkenFactor);
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = normalColor;
+        }
+    }
+
+    /// <summary>
+    /// Sobreescribe la celda y dirección iniciales configuradas en el
+    /// prefab. La usa GameManager para repartir a los enemigos en
+    /// distintas posiciones de la grilla — sin esto, todas las instancias
+    /// creadas del mismo prefab arrancarían superpuestas en el mismo
+    /// lugar. Debe llamarse antes de que corra Start().
+    /// </summary>
+    public void SetStartPosition(Vector2Int cell, Vector2Int dir)
+    {
+        startCell = cell;
+        startDirection = dir;
+    }
+
+    /// <summary>
+    /// Llamado por GameManager inmediatamente después de instanciar este
+    /// jugador o enemigo. El parámetro isPlayer se decide en el momento
+    /// de la creación — GameManager es el único lugar que sabe cuál de
+    /// las instancias que crea es la del jugador humano.
+    /// </summary>
+    public void Initialize(GridManager grid, TrailManager trail, bool isPlayer)
     {
         gridManager = grid;
         trailManager = trail;
+        this.isPlayer = isPlayer;
     }
 
     private void Start()
@@ -93,6 +158,8 @@ public class LightCycleController : MonoBehaviour
         gridManager.SetCellOccupied(currentCell);
 
         ApplyTrailVisualFeedback();
+
+        OnCellEntered?.Invoke();
     }
 
     private void Update()
@@ -114,19 +181,13 @@ public class LightCycleController : MonoBehaviour
     private void HandleTurnInput()
     {
         TurnInput turn = inputProvider.GetTurnInput();
+
         if (turn == TurnInput.None) return;
 
         Vector2Int candidateDirection = turn == TurnInput.Left
-            ? RotateLeft(direction)
-            : RotateRight(direction);
+            ? GridDirectionUtils.RotateLeft(direction)
+            : GridDirectionUtils.RotateRight(direction);
 
-        // Comparamos contra "direction" (la última dirección YA
-        // CONFIRMADA por un Step()), nunca contra "queuedDirection". Si
-        // comparáramos contra queuedDirection, dos giros de 90° pedidos
-        // dentro del mismo intervalo de movimiento —antes de que el
-        // próximo Step() confirme el primero— se irían acumulando entre
-        // sí y podrían terminar formando un giro de 180° sin que el
-        // jugador se haya movido siquiera una celda.
         if (candidateDirection != -direction)
         {
             queuedDirection = candidateDirection;
@@ -144,18 +205,14 @@ public class LightCycleController : MonoBehaviour
     private void ApplyTrailVisualFeedback()
     {
         if (spriteRenderer == null) return;
-        spriteRenderer.color = trailEnabled ? normalColor : ghostColor;
-    }
 
-    private static Vector2Int RotateLeft(Vector2Int dir) => new Vector2Int(-dir.y, dir.x);
-    private static Vector2Int RotateRight(Vector2Int dir) => new Vector2Int(dir.y, -dir.x);
+        spriteRenderer.color = trailEnabled
+            ? normalColor
+            : ghostColor;
+    }
 
     private void Step()
     {
-        // Recién acá, en el momento exacto del paso, la dirección en cola
-        // pasa a ser la dirección confirmada. Todo giro pedido antes de
-        // este punto se evaluó siempre contra esta misma dirección, nunca
-        // contra otro giro pendiente.
         direction = queuedDirection;
 
         Vector2Int nextCell = currentCell + direction;
@@ -168,12 +225,19 @@ public class LightCycleController : MonoBehaviour
 
         if (trailEnabled)
         {
-            trailManager.SpawnTrailSegment(currentCell);
-            gridManager.SetCellOccupied(currentCell);
+            trailManager.SpawnTrailSegment(currentCell, trailColor);
+        }
+        else
+        {
+            gridManager.ClearCellOccupied(currentCell);
         }
 
         currentCell = nextCell;
         transform.position = gridManager.GridToWorld(currentCell);
+
+        gridManager.SetCellOccupied(currentCell);
+
+        OnCellEntered?.Invoke();
     }
 
     private void Die(Vector2Int attemptedCell)
