@@ -16,6 +16,7 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
     private LightCycleController target;
 
     private TurnInput pendingTurn = TurnInput.None;
+    private bool pendingToggleRequest;
 
     private void Awake()
     {
@@ -50,24 +51,28 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
     {
         List<Vector2Int> validDirections = GetValidDirections();
 
+        EnemyDecisionContext context = new EnemyDecisionContext(controller, validDirections, target, gridManager);
+
+        // La decisión sobre el rastro se evalúa siempre, incluso si no
+        // queda ninguna dirección válida para moverse — son dos preguntas
+        // independientes.
+        if (behavior.ShouldToggleTrail(context))
+        {
+            pendingToggleRequest = true;
+        }
+
         if (validDirections.Count == 0)
         {
-            // Sin ninguna dirección legal, no hay nada que decidir: el
-            // próximo Step() de LightCycleController va a detectar la
-            // colisión y morir, con las mismas reglas que el jugador.
+            // Sin ninguna dirección legal, no hay nada que decidir sobre
+            // el giro: el próximo Step() de LightCycleController va a
+            // detectar la colisión y morir, con las mismas reglas que el
+            // jugador.
             return;
         }
 
-        Vector2Int chosen;
-        if (validDirections.Count == 1)
-        {
-            chosen = validDirections[0];
-        }
-        else
-        {
-            EnemyDecisionContext context = new EnemyDecisionContext(controller, validDirections, target, gridManager);
-            chosen = behavior.ChooseDirection(context);
-        }
+        Vector2Int chosen = validDirections.Count == 1
+            ? validDirections[0]
+            : behavior.ChooseDirection(context);
 
         pendingTurn = DirectionToTurn(controller.Direction, chosen);
     }
@@ -102,7 +107,12 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
         return result;
     }
 
-    public bool WasTrailToggleRequested() => false;
+    public bool WasTrailToggleRequested()
+    {
+        if (!pendingToggleRequest) return false;
+        pendingToggleRequest = false;
+        return true;
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()

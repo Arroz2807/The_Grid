@@ -60,7 +60,21 @@ public class LightCycleController : MonoBehaviour
 
     public Vector2Int CurrentCell => currentCell;
     public Vector2Int Direction => direction;
+
+    /// <summary>
+    /// Color utilizado para generar el rastro y la explosión de muerte.
+    /// Es una versión oscurecida del color propio de la entidad.
+    /// </summary>
     public Color TrailColor => trailColor;
+
+    /// <summary>
+    /// Indica si el rastro está actualmente activado.
+    ///
+    /// Los comportamientos de IA pueden consultar este valor para saber
+    /// si el rastro está prendido AHORA y decidir correctamente si
+    /// necesitan solicitar un cambio.
+    /// </summary>
+    public bool TrailEnabled => trailEnabled;
 
     /// <summary>
     /// True si esta instancia es la entidad controlada por el jugador
@@ -78,7 +92,13 @@ public class LightCycleController : MonoBehaviour
 
         if (inputProvider == null || trailToggleInput == null)
         {
-            Debug.LogError($"{name}: falta un componente que implemente IDirectionInputProvider y ITrailToggleInputProvider (por ejemplo, KeyboardInputProvider o EnemyBrain). Desactivando este objeto.");
+            Debug.LogError(
+                $"{name}: falta un componente que implemente " +
+                "IDirectionInputProvider y ITrailToggleInputProvider " +
+                "(por ejemplo, KeyboardInputProvider o EnemyBrain). " +
+                "Desactivando este objeto."
+            );
+
             enabled = false;
             return;
         }
@@ -88,11 +108,21 @@ public class LightCycleController : MonoBehaviour
         if (spriteRenderer != null)
         {
             normalColor = spriteRenderer.color;
-            ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
-            trailColor = DarkenColor(normalColor, trailDarkenFactor);
+            ghostColor = DarkenColor(
+                normalColor,
+                ghostDarkenFactor
+            );
+
+            trailColor = DarkenColor(
+                normalColor,
+                trailDarkenFactor
+            );
         }
     }
 
+    /// <summary>
+    /// Oscurece un color manteniendo su canal alpha.
+    /// </summary>
     private static Color DarkenColor(Color color, float factor)
     {
         return new Color(
@@ -104,15 +134,29 @@ public class LightCycleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Asigna el color propio de esta entidad y recalcula los colores derivados:
-    /// color normal, color con el rastro apagado y color del rastro/explosión.
-    /// GameManager lo llama al crear cada enemigo.
+    /// Asigna el color propio de esta entidad y recalcula todos los
+    /// colores derivados:
+    ///
+    /// - normalColor: color del cuerpo cuando el rastro está activo.
+    /// - ghostColor: color del cuerpo cuando el rastro está apagado.
+    /// - trailColor: color utilizado para el rastro y la explosión.
+    ///
+    /// GameManager llama a este método al crear cada enemigo,
+    /// utilizando un color diferente según su EnemyType.
     /// </summary>
     public void SetColor(Color color)
     {
         normalColor = color;
-        ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
-        trailColor = DarkenColor(normalColor, trailDarkenFactor);
+
+        ghostColor = DarkenColor(
+            normalColor,
+            ghostDarkenFactor
+        );
+
+        trailColor = DarkenColor(
+            normalColor,
+            trailDarkenFactor
+        );
 
         if (spriteRenderer != null)
         {
@@ -135,11 +179,16 @@ public class LightCycleController : MonoBehaviour
 
     /// <summary>
     /// Llamado por GameManager inmediatamente después de instanciar este
-    /// jugador o enemigo. El parámetro isPlayer se decide en el momento
-    /// de la creación — GameManager es el único lugar que sabe cuál de
-    /// las instancias que crea es la del jugador humano.
+    /// jugador o enemigo.
+    ///
+    /// El parámetro isPlayer se decide en el momento de la creación —
+    /// GameManager es el único lugar que sabe cuál de las instancias
+    /// que crea es la del jugador humano.
     /// </summary>
-    public void Initialize(GridManager grid, TrailManager trail, bool isPlayer)
+    public void Initialize(
+        GridManager grid,
+        TrailManager trail,
+        bool isPlayer)
     {
         gridManager = grid;
         trailManager = trail;
@@ -152,8 +201,11 @@ public class LightCycleController : MonoBehaviour
         direction = startDirection;
         queuedDirection = startDirection;
 
-        transform.localScale = Vector3.one * gridManager.CellSize;
-        transform.position = gridManager.GridToWorld(currentCell);
+        transform.localScale =
+            Vector3.one * gridManager.CellSize;
+
+        transform.position =
+            gridManager.GridToWorld(currentCell);
 
         gridManager.SetCellOccupied(currentCell);
 
@@ -182,12 +234,15 @@ public class LightCycleController : MonoBehaviour
     {
         TurnInput turn = inputProvider.GetTurnInput();
 
-        if (turn == TurnInput.None) return;
+        if (turn == TurnInput.None)
+            return;
 
-        Vector2Int candidateDirection = turn == TurnInput.Left
-            ? GridDirectionUtils.RotateLeft(direction)
-            : GridDirectionUtils.RotateRight(direction);
+        Vector2Int candidateDirection =
+            turn == TurnInput.Left
+                ? GridDirectionUtils.RotateLeft(direction)
+                : GridDirectionUtils.RotateRight(direction);
 
+        // Nunca se permite girar 180 grados.
         if (candidateDirection != -direction)
         {
             queuedDirection = candidateDirection;
@@ -196,15 +251,28 @@ public class LightCycleController : MonoBehaviour
 
     private void HandleTrailToggleInput()
     {
-        if (!trailToggleInput.WasTrailToggleRequested()) return;
+        if (!trailToggleInput.WasTrailToggleRequested())
+            return;
 
         trailEnabled = !trailEnabled;
+
         ApplyTrailVisualFeedback();
     }
 
+    /// <summary>
+    /// Actualiza visualmente el cuerpo de la entidad según el estado
+    /// actual del rastro.
+    ///
+    /// Si el rastro está activo:
+    ///     normalColor
+    ///
+    /// Si el rastro está apagado:
+    ///     ghostColor
+    /// </summary>
     private void ApplyTrailVisualFeedback()
     {
-        if (spriteRenderer == null) return;
+        if (spriteRenderer == null)
+            return;
 
         spriteRenderer.color = trailEnabled
             ? normalColor
@@ -215,26 +283,37 @@ public class LightCycleController : MonoBehaviour
     {
         direction = queuedDirection;
 
-        Vector2Int nextCell = currentCell + direction;
+        Vector2Int nextCell =
+            currentCell + direction;
 
-        if (!gridManager.IsInsideGrid(nextCell) || gridManager.IsCellOccupied(nextCell))
+        // Choca contra los límites o una celda ocupada.
+        if (!gridManager.IsInsideGrid(nextCell) ||
+            gridManager.IsCellOccupied(nextCell))
         {
             Die(nextCell);
             return;
         }
 
+        // Si el rastro está activo, dejamos un segmento permanente.
         if (trailEnabled)
         {
-            trailManager.SpawnTrailSegment(currentCell, trailColor);
+            trailManager.SpawnTrailSegment(
+                currentCell,
+                trailColor
+            );
         }
         else
         {
+            // Si el rastro está apagado, la celda anterior queda libre.
             gridManager.ClearCellOccupied(currentCell);
         }
 
         currentCell = nextCell;
-        transform.position = gridManager.GridToWorld(currentCell);
 
+        transform.position =
+            gridManager.GridToWorld(currentCell);
+
+        // La entidad ocupa físicamente su nueva celda.
         gridManager.SetCellOccupied(currentCell);
 
         OnCellEntered?.Invoke();
@@ -244,8 +323,14 @@ public class LightCycleController : MonoBehaviour
     {
         isAlive = false;
 
-        Debug.Log($"DERROTA: {name} chocó al intentar entrar en la celda {attemptedCell}.");
+        Debug.Log(
+            $"DERROTA: {name} chocó al intentar entrar " +
+            $"en la celda {attemptedCell}."
+        );
 
+        // El evento permite que GameManager sepa si murió
+        // el jugador o un enemigo y que DeathExplosionSpawner
+        // pueda generar la explosión usando TrailColor.
         OnAnyPlayerDied?.Invoke(this);
 
         Destroy(gameObject);

@@ -1,33 +1,36 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
-/// Elige una dirección al azar entre las opciones válidas — pero primero
-/// descarta las que llevarían a un callejón sin salida en el paso
-/// siguiente (ver GridDirectionUtils.HasAnyExit). Sigue siendo el
-/// comportamiento menos informado de los cuatro (no usa el objetivo en
-/// absoluto), pero ya no elige, por pura casualidad, opciones que se
-/// autodestruyen un paso después.
+/// Elige una dirección al azar entre las opciones válidas, descartando
+/// primero las que llevarían a un callejón sin salida en el paso
+/// siguiente (ver GridDirectionUtils.HasAnyExit). Para el rastro, es la
+/// única que mantiene una decisión genuinamente aleatoria a propósito —
+/// los otros tres deciden con criterio, éste no.
 /// </summary>
 public class RandomBehavior : IEnemyBehavior
 {
-    public UnityEngine.Vector2Int ChooseDirection(EnemyDecisionContext context)
-    {
-        List<UnityEngine.Vector2Int> safeDirections = new List<UnityEngine.Vector2Int>();
+    private const float TrailToggleChance = 0.08f;
 
-        foreach (UnityEngine.Vector2Int direction in context.ValidDirections)
+    public Vector2Int ChooseDirection(EnemyDecisionContext context)
+    {
+        List<Vector2Int> safeDirections = new List<Vector2Int>();
+
+        foreach (Vector2Int direction in context.ValidDirections)
         {
-            UnityEngine.Vector2Int nextCell = context.Self.CurrentCell + direction;
+            Vector2Int nextCell = context.Self.CurrentCell + direction;
             if (GridDirectionUtils.HasAnyExit(context.GridManager, nextCell, direction))
             {
                 safeDirections.Add(direction);
             }
         }
 
-        // Si NINGUNA opción tiene salida al paso siguiente, no hay nada
-        // "seguro" entre qué elegir — usamos las válidas de siempre, total
-        // el callejón es inevitable de cualquier forma.
-        List<UnityEngine.Vector2Int> candidates = safeDirections.Count > 0 ? safeDirections : context.ValidDirections;
-
+        List<Vector2Int> candidates = safeDirections.Count > 0 ? safeDirections : context.ValidDirections;
         return GridDirectionUtils.PickRandomDirection(candidates);
+    }
+
+    public bool ShouldToggleTrail(EnemyDecisionContext context)
+    {
+        return Random.value < TrailToggleChance;
     }
 }
