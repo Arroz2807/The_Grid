@@ -1,12 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Traduce las teclas del teclado en las dos señales que el jugador puede
-/// emitir: un giro (izquierda/derecha) y un pedido de alternar el rastro.
-/// Implementa dos interfaces separadas — IDirectionInputProvider e
-/// ITrailToggleInputProvider — en vez de una sola con ambos métodos,
-/// siguiendo el principio de segregación de interfaces (ver comentario en
-/// ITrailToggleInputProvider.cs).
+/// Traduce el teclado en las dos señales que el jugador puede emitir: una
+/// dirección absoluta deseada (WASD o flechas) y un pedido de alternar el
+/// rastro. Implementa dos interfaces separadas — IDirectionInputProvider e
+/// ITrailToggleInputProvider — siguiendo el principio de segregación de
+/// interfaces.
 /// </summary>
 public class KeyboardInputProvider : MonoBehaviour, IDirectionInputProvider, ITrailToggleInputProvider
 {
@@ -14,37 +13,41 @@ public class KeyboardInputProvider : MonoBehaviour, IDirectionInputProvider, ITr
     [Tooltip("Tecla para encender/apagar el rastro.")]
     [SerializeField] private KeyCode trailToggleKey = KeyCode.Q;
 
-    private TurnInput pendingTurn = TurnInput.None;
+    private Vector2Int? pendingDirection;
 
     private void Update()
     {
-        // Si ya hay un giro esperando a ser consumido, ignoramos nuevas
-        // teclas hasta que se procese. Esto evita que dos teclas
-        // presionadas muy rápido, dentro del mismo intervalo de
-        // movimiento, generen dos giros que sumados equivaldrían a un giro
-        // de 180°.
-        if (pendingTurn != TurnInput.None) return;
+        // Si ya hay una dirección esperando a ser consumida, ignoramos
+        // nuevas teclas hasta que se procese — evita que pulsaciones muy
+        // rápidas, dentro del mismo intervalo de movimiento, se acumulen
+        // de forma imprevista.
+        if (pendingDirection.HasValue) return;
 
-        if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
+        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
         {
-            pendingTurn = TurnInput.Left;
+            pendingDirection = Vector2Int.up;
         }
-        else if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
+        else if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
         {
-            pendingTurn = TurnInput.Right;
+            pendingDirection = Vector2Int.down;
+        }
+        else if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
+        {
+            pendingDirection = Vector2Int.left;
+        }
+        else if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
+        {
+            pendingDirection = Vector2Int.right;
         }
     }
 
-    public TurnInput GetTurnInput()
+    public Vector2Int? GetDesiredDirection()
     {
-        TurnInput result = pendingTurn;
-        pendingTurn = TurnInput.None; // se consume al leer
+        Vector2Int? result = pendingDirection;
+        pendingDirection = null; // se consume al leer
         return result;
     }
 
-    // A diferencia de GetTurnInput(), acá no hace falta bufferear: no hay
-    // un único "momento del paso" donde la pulsación se pueda perder, ya
-    // que LightCycleController consulta esto en todos los frames.
     public bool WasTrailToggleRequested()
     {
         return Input.GetKeyDown(trailToggleKey);

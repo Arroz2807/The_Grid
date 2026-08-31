@@ -2,17 +2,15 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Mueve al ciclo de luz celda por celda, a ritmo constante, aplicando el
-/// giro pedido por el proveedor de input. Antes de cada paso, consulta a
-/// GridManager si el camino está libre; si no lo está, muere. No sabe cómo
-/// se guarda la ocupación de la grilla ni cómo se dibuja el rastro — solo
-/// pide esas cosas a través de referencias a GridManager y TrailManager.
+/// Mueve al ciclo de luz celda por celda, a ritmo constante, aplicando la
+/// dirección absoluta pedida por el proveedor de input. Antes de cada
+/// paso, consulta a GridManager si el camino está libre; si no lo está,
+/// muere. No sabe cómo se guarda la ocupación de la grilla ni cómo se
+/// dibuja el rastro — solo pide esas cosas a través de referencias a
+/// GridManager y TrailManager.
 ///
 /// Esta clase la usan tanto el jugador como cada enemigo: no sabe ni le
-/// importa si su IDirectionInputProvider es un teclado o una IA. Sí sabe
-/// (porque se lo dicen al crearla) si es la entidad controlada por el
-/// jugador humano — únicamente para exponerlo, nunca para comportarse
-/// distinto por eso.
+/// importa si su IDirectionInputProvider es un teclado o una IA.
 /// </summary>
 public class LightCycleController : MonoBehaviour
 {
@@ -60,28 +58,12 @@ public class LightCycleController : MonoBehaviour
 
     public Vector2Int CurrentCell => currentCell;
     public Vector2Int Direction => direction;
-
-    /// <summary>
-    /// Color utilizado para generar el rastro y la explosión de muerte.
-    /// Es una versión oscurecida del color propio de la entidad.
-    /// </summary>
     public Color TrailColor => trailColor;
-
-    /// <summary>
-    /// Indica si el rastro está actualmente activado.
-    ///
-    /// Los comportamientos de IA pueden consultar este valor para saber
-    /// si el rastro está prendido AHORA y decidir correctamente si
-    /// necesitan solicitar un cambio.
-    /// </summary>
     public bool TrailEnabled => trailEnabled;
 
     /// <summary>
     /// True si esta instancia es la entidad controlada por el jugador
-    /// humano. GameManager es quien lo decide y lo asigna en Initialize()
-    /// — esta clase nunca lo infiere por su cuenta (por ejemplo, mirando
-    /// qué IDirectionInputProvider tiene), para no acoplar "quién soy" a
-    /// "cómo me controlan", que son cosas conceptualmente distintas.
+    /// humano. GameManager es quien lo decide y lo asigna en Initialize().
     /// </summary>
     public bool IsPlayer => isPlayer;
 
@@ -92,13 +74,7 @@ public class LightCycleController : MonoBehaviour
 
         if (inputProvider == null || trailToggleInput == null)
         {
-            Debug.LogError(
-                $"{name}: falta un componente que implemente " +
-                "IDirectionInputProvider y ITrailToggleInputProvider " +
-                "(por ejemplo, KeyboardInputProvider o EnemyBrain). " +
-                "Desactivando este objeto."
-            );
-
+            Debug.LogError($"{name}: falta un componente que implemente IDirectionInputProvider y ITrailToggleInputProvider (por ejemplo, KeyboardInputProvider o EnemyBrain). Desactivando este objeto.");
             enabled = false;
             return;
         }
@@ -108,21 +84,36 @@ public class LightCycleController : MonoBehaviour
         if (spriteRenderer != null)
         {
             normalColor = spriteRenderer.color;
-            ghostColor = DarkenColor(
-                normalColor,
-                ghostDarkenFactor
-            );
-
-            trailColor = DarkenColor(
-                normalColor,
-                trailDarkenFactor
-            );
+            ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
+            trailColor = DarkenColor(normalColor, trailDarkenFactor);
         }
     }
 
+    private void OnEnable()
+    {
+        GameManager.OnMatchEnded += HandleMatchEnded;
+    }
+
+    private void OnDisable()
+    {
+        GameManager.OnMatchEnded -= HandleMatchEnded;
+    }
+
     /// <summary>
-    /// Oscurece un color manteniendo su canal alpha.
+    /// Apenas termina la partida, cualquier entidad que siga viva deja de
+    /// procesar input y de moverse. Sin esto, el jugador (si ganó) o los
+    /// enemigos que sigan de pie (si perdiste) seguirían jugando de fondo
+    /// mientras se muestra el panel de Game Over — y ahora que el
+    /// movimiento usa las mismas cuatro teclas (WASD) que la navegación
+    /// de ese panel, esas pulsaciones terminarían moviendo al personaje
+    /// además de navegar el menú. Reutiliza el mismo isAlive que ya frena
+    /// Update() al morir — no hace falta ningún estado nuevo.
     /// </summary>
+    private void HandleMatchEnded(bool playerWon)
+    {
+        isAlive = false;
+    }
+
     private static Color DarkenColor(Color color, float factor)
     {
         return new Color(
@@ -134,29 +125,15 @@ public class LightCycleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Asigna el color propio de esta entidad y recalcula todos los
-    /// colores derivados:
-    ///
-    /// - normalColor: color del cuerpo cuando el rastro está activo.
-    /// - ghostColor: color del cuerpo cuando el rastro está apagado.
-    /// - trailColor: color utilizado para el rastro y la explosión.
-    ///
-    /// GameManager llama a este método al crear cada enemigo,
-    /// utilizando un color diferente según su EnemyType.
+    /// Asigna el color propio de esta entidad y recalcula los colores derivados:
+    /// color normal, color con el rastro apagado y color del rastro/explosión.
+    /// GameManager lo llama al crear cada enemigo.
     /// </summary>
     public void SetColor(Color color)
     {
         normalColor = color;
-
-        ghostColor = DarkenColor(
-            normalColor,
-            ghostDarkenFactor
-        );
-
-        trailColor = DarkenColor(
-            normalColor,
-            trailDarkenFactor
-        );
+        ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
+        trailColor = DarkenColor(normalColor, trailDarkenFactor);
 
         if (spriteRenderer != null)
         {
@@ -167,9 +144,8 @@ public class LightCycleController : MonoBehaviour
     /// <summary>
     /// Sobreescribe la celda y dirección iniciales configuradas en el
     /// prefab. La usa GameManager para repartir a los enemigos en
-    /// distintas posiciones de la grilla — sin esto, todas las instancias
-    /// creadas del mismo prefab arrancarían superpuestas en el mismo
-    /// lugar. Debe llamarse antes de que corra Start().
+    /// distintas posiciones de la grilla. Debe llamarse antes de que
+    /// corra Start().
     /// </summary>
     public void SetStartPosition(Vector2Int cell, Vector2Int dir)
     {
@@ -180,15 +156,8 @@ public class LightCycleController : MonoBehaviour
     /// <summary>
     /// Llamado por GameManager inmediatamente después de instanciar este
     /// jugador o enemigo.
-    ///
-    /// El parámetro isPlayer se decide en el momento de la creación —
-    /// GameManager es el único lugar que sabe cuál de las instancias
-    /// que crea es la del jugador humano.
     /// </summary>
-    public void Initialize(
-        GridManager grid,
-        TrailManager trail,
-        bool isPlayer)
+    public void Initialize(GridManager grid, TrailManager trail, bool isPlayer)
     {
         gridManager = grid;
         trailManager = trail;
@@ -201,11 +170,8 @@ public class LightCycleController : MonoBehaviour
         direction = startDirection;
         queuedDirection = startDirection;
 
-        transform.localScale =
-            Vector3.one * gridManager.CellSize;
-
-        transform.position =
-            gridManager.GridToWorld(currentCell);
+        transform.localScale = Vector3.one * gridManager.CellSize;
+        transform.position = gridManager.GridToWorld(currentCell);
 
         gridManager.SetCellOccupied(currentCell);
 
@@ -232,17 +198,17 @@ public class LightCycleController : MonoBehaviour
 
     private void HandleTurnInput()
     {
-        TurnInput turn = inputProvider.GetTurnInput();
+        Vector2Int? desired = inputProvider.GetDesiredDirection();
+        if (!desired.HasValue) return;
 
-        if (turn == TurnInput.None)
-            return;
+        Vector2Int candidateDirection = desired.Value;
 
-        Vector2Int candidateDirection =
-            turn == TurnInput.Left
-                ? GridDirectionUtils.RotateLeft(direction)
-                : GridDirectionUtils.RotateRight(direction);
-
-        // Nunca se permite girar 180 grados.
+        // Se compara contra "direction" (la última dirección YA
+        // CONFIRMADA por un Step()), nunca contra "queuedDirection" —
+        // así, sin importar cuántas direcciones distintas lleguen antes
+        // del próximo Step(), ninguna combinación puede terminar
+        // formando un giro de 180°: sólo se descarta si es EXACTAMENTE
+        // la opuesta a la dirección confirmada.
         if (candidateDirection != -direction)
         {
             queuedDirection = candidateDirection;
@@ -251,28 +217,15 @@ public class LightCycleController : MonoBehaviour
 
     private void HandleTrailToggleInput()
     {
-        if (!trailToggleInput.WasTrailToggleRequested())
-            return;
+        if (!trailToggleInput.WasTrailToggleRequested()) return;
 
         trailEnabled = !trailEnabled;
-
         ApplyTrailVisualFeedback();
     }
 
-    /// <summary>
-    /// Actualiza visualmente el cuerpo de la entidad según el estado
-    /// actual del rastro.
-    ///
-    /// Si el rastro está activo:
-    ///     normalColor
-    ///
-    /// Si el rastro está apagado:
-    ///     ghostColor
-    /// </summary>
     private void ApplyTrailVisualFeedback()
     {
-        if (spriteRenderer == null)
-            return;
+        if (spriteRenderer == null) return;
 
         spriteRenderer.color = trailEnabled
             ? normalColor
@@ -283,37 +236,26 @@ public class LightCycleController : MonoBehaviour
     {
         direction = queuedDirection;
 
-        Vector2Int nextCell =
-            currentCell + direction;
+        Vector2Int nextCell = currentCell + direction;
 
-        // Choca contra los límites o una celda ocupada.
-        if (!gridManager.IsInsideGrid(nextCell) ||
-            gridManager.IsCellOccupied(nextCell))
+        if (!gridManager.IsInsideGrid(nextCell) || gridManager.IsCellOccupied(nextCell))
         {
             Die(nextCell);
             return;
         }
 
-        // Si el rastro está activo, dejamos un segmento permanente.
         if (trailEnabled)
         {
-            trailManager.SpawnTrailSegment(
-                currentCell,
-                trailColor
-            );
+            trailManager.SpawnTrailSegment(currentCell, trailColor);
         }
         else
         {
-            // Si el rastro está apagado, la celda anterior queda libre.
             gridManager.ClearCellOccupied(currentCell);
         }
 
         currentCell = nextCell;
+        transform.position = gridManager.GridToWorld(currentCell);
 
-        transform.position =
-            gridManager.GridToWorld(currentCell);
-
-        // La entidad ocupa físicamente su nueva celda.
         gridManager.SetCellOccupied(currentCell);
 
         OnCellEntered?.Invoke();
@@ -323,14 +265,8 @@ public class LightCycleController : MonoBehaviour
     {
         isAlive = false;
 
-        Debug.Log(
-            $"DERROTA: {name} chocó al intentar entrar " +
-            $"en la celda {attemptedCell}."
-        );
+        Debug.Log($"DERROTA: {name} chocó al intentar entrar en la celda {attemptedCell}.");
 
-        // El evento permite que GameManager sepa si murió
-        // el jugador o un enemigo y que DeathExplosionSpawner
-        // pueda generar la explosión usando TrailColor.
         OnAnyPlayerDied?.Invoke(this);
 
         Destroy(gameObject);

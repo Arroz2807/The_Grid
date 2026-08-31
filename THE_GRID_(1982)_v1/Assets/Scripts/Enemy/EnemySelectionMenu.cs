@@ -1,63 +1,79 @@
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Construye dinámicamente un EnemySlotUI por cada enemigo elegido en el
-/// dropdown de cantidad (0 a 4). No navega entre paneles ni carga escenas
-/// — eso es responsabilidad de MainMenuManager; esta clase sólo arma el
-/// contenido de este panel.
+/// Construye dinámicamente un EnemySlotUI por cada enemigo elegido, y
+/// mantiene actualizada la lista completa de opciones navegables de este
+/// panel, entregándosela a MenuNavigator cada vez que cambia. No navega
+/// ni mueve ningún cursor — eso es responsabilidad exclusiva de
+/// MenuNavigator.
 /// </summary>
 public class EnemySelectionMenu : MonoBehaviour
 {
-    [SerializeField] private TMP_Dropdown countDropdown;
+    [SerializeField] private MenuNavigator navigator;
+    [SerializeField] private NavigableCounter enemyCountOption;
     [SerializeField] private Transform slotContainer;
     [SerializeField] private GameObject enemySlotPrefab;
+    [SerializeField] private NavigableButton backOption;
+    [SerializeField] private NavigableButton startOption;
 
     private readonly List<GameObject> activeSlots = new List<GameObject>();
 
-    // OnEnable, no Start: este panel arranca inactivo y se activa recién
-    // cuando el jugador aprieta "Jugar" en el menú principal. Con Start()
-    // esto sólo correría la primera vez; con OnEnable() se reconstruye
-    // cada vez que el panel se vuelve a mostrar, conservando la última
-    // cantidad elegida si el jugador va y vuelve.
     private void OnEnable()
     {
-        countDropdown.ClearOptions();
-        countDropdown.AddOptions(new List<string> { "0", "1", "2", "3", "4" });
-        countDropdown.value = 0;
-        countDropdown.onValueChanged.AddListener(HandleCountChanged);
-
-        HandleCountChanged(countDropdown.value);
+        enemyCountOption.OnValueChanged += HandleCountChanged;
     }
 
     private void OnDisable()
     {
-        countDropdown.onValueChanged.RemoveListener(HandleCountChanged);
+        enemyCountOption.OnValueChanged -= HandleCountChanged;
+    }
+
+    private void Start()
+    {
+        // Start(), no OnEnable(): Unity garantiza que TODOS los Awake()
+        // de este lote de activación ya corrieron antes de cualquier
+        // Start() — a diferencia de OnEnable(), donde el orden entre
+        // distintos GameObjects no está garantizado. Leer
+        // enemyCountOption.CurrentValue desde OnEnable() podía ejecutarse
+        // antes de que NavigableCounter.Awake() inicializara su valor,
+        // leyendo el 0 por defecto de un int en vez del 1 real.
+        HandleCountChanged(enemyCountOption.CurrentValue);
     }
 
     private void HandleCountChanged(int count)
     {
         MatchConfig.SetEnemyCount(count);
-        RebuildSlots(count);
+        RebuildSlotsAndOptions(count);
     }
 
-    private void RebuildSlots(int count)
+    private void RebuildSlotsAndOptions(int count)
     {
-        // Destruir y reconstruir todo es simple y de sobra para un máximo
-        // de 4 elementos — no vale la pena la complejidad extra de
-        // agregar/quitar slots de a uno para una escala tan chica.
+        Debug.Log($"{name}: reconstruyendo slots para {count} enemigo(s).");
+
         foreach (GameObject slot in activeSlots)
         {
             Destroy(slot);
         }
         activeSlots.Clear();
 
+        // Back va primero: ahora vive visualmente arriba a la izquierda,
+        // separado del resto del flujo — ponerlo primero en la lista
+        // evita un salto grande del cursor entre Start (al final) y Back.
+        List<INavigableOption> options = new List<INavigableOption> { backOption, enemyCountOption };
+
         for (int i = 0; i < count; i++)
         {
             GameObject instance = Instantiate(enemySlotPrefab, slotContainer);
-            instance.GetComponent<EnemySlotUI>().Initialize(i);
+            EnemySlotUI slotUI = instance.GetComponent<EnemySlotUI>();
+            slotUI.Initialize(i);
+
             activeSlots.Add(instance);
+            options.Add(slotUI);
         }
+
+        options.Add(startOption);
+
+        navigator.SetOptions(options);
     }
 }

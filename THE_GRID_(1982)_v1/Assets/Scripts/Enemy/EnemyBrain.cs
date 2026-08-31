@@ -15,7 +15,7 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
     private LightCycleController controller;
     private LightCycleController target;
 
-    private TurnInput pendingTurn = TurnInput.None;
+    private Vector2Int? pendingDirection;
     private bool pendingToggleRequest;
 
     private void Awake()
@@ -23,13 +23,6 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
         controller = GetComponent<LightCycleController>();
     }
 
-    /// <summary>
-    /// Llamado por GameManager inmediatamente después de instanciar este
-    /// enemigo. "initialTarget" es, por ahora, siempre el jugador — el día
-    /// que exista selección dinámica de objetivo (modo Todos-contra-todos),
-    /// este parámetro es el punto donde se conecta sin tocar el resto de
-    /// esta clase.
-    /// </summary>
     public void Initialize(GridManager grid, IEnemyBehavior chosenBehavior, LightCycleController initialTarget)
     {
         gridManager = grid;
@@ -53,9 +46,6 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
 
         EnemyDecisionContext context = new EnemyDecisionContext(controller, validDirections, target, gridManager);
 
-        // La decisión sobre el rastro se evalúa siempre, incluso si no
-        // queda ninguna dirección válida para moverse — son dos preguntas
-        // independientes.
         if (behavior.ShouldToggleTrail(context))
         {
             pendingToggleRequest = true;
@@ -63,18 +53,17 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
 
         if (validDirections.Count == 0)
         {
-            // Sin ninguna dirección legal, no hay nada que decidir sobre
-            // el giro: el próximo Step() de LightCycleController va a
-            // detectar la colisión y morir, con las mismas reglas que el
-            // jugador.
             return;
         }
 
-        Vector2Int chosen = validDirections.Count == 1
+        // Antes esto se traducía a un giro relativo (TurnInput) para
+        // encajar con la vieja IDirectionInputProvider; ahora la interfaz
+        // trabaja directamente en direcciones absolutas, así que la
+        // elección del comportamiento se entrega tal cual, sin ningún
+        // paso de conversión intermedio.
+        pendingDirection = validDirections.Count == 1
             ? validDirections[0]
             : behavior.ChooseDirection(context);
-
-        pendingTurn = DirectionToTurn(controller.Direction, chosen);
     }
 
     private List<Vector2Int> GetValidDirections()
@@ -93,17 +82,10 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
         return valid;
     }
 
-    private static TurnInput DirectionToTurn(Vector2Int from, Vector2Int to)
+    public Vector2Int? GetDesiredDirection()
     {
-        if (to == from) return TurnInput.None;
-        if (to == GridDirectionUtils.RotateLeft(from)) return TurnInput.Left;
-        return TurnInput.Right;
-    }
-
-    public TurnInput GetTurnInput()
-    {
-        TurnInput result = pendingTurn;
-        pendingTurn = TurnInput.None;
+        Vector2Int? result = pendingDirection;
+        pendingDirection = null;
         return result;
     }
 
@@ -125,8 +107,6 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
         Gizmos.DrawLine(from, to);
         Gizmos.DrawSphere(to, 0.06f);
 
-        // Línea hacia el objetivo actual — para ver de un vistazo a quién
-        // le está apuntando cada enemigo mientras jugás en el Editor.
         if (target != null)
         {
             Gizmos.color = Color.red;

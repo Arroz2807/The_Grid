@@ -4,21 +4,22 @@ using UnityEngine;
 
 /// <summary>
 /// Muestra el panel de fin de partida cuando GameManager avisa que la
-/// partida terminó — ya no escucha la muerte de entidades directamente,
-/// sólo la conclusión ya decidida por el árbitro. Su única responsabilidad
-/// es de presentación: qué texto mostrar y cuándo revelar el panel, nunca
-/// decidir si se ganó o se perdió.
+/// partida terminó, con el texto y color correspondientes al resultado.
+/// Su única responsabilidad es de presentación — nunca decide si se ganó
+/// o se perdió, sólo reacciona a lo que ya decidió GameManager.
 /// </summary>
 public class GameOverController : MonoBehaviour
 {
-    [Tooltip("Panel de fin de partida completo. Debe empezar inactivo en la escena.")]
     [SerializeField] private GameObject gameOverPanel;
-
-    [Tooltip("Texto del título del panel — se sobreescribe con VICTORIA o DERROTA según corresponda.")]
     [SerializeField] private TMP_Text titleText;
-
-    [Tooltip("Segundos de espera antes de mostrar el panel, para no tapar la explosión de partículas.")]
     [SerializeField] private float panelRevealDelay = 1f;
+
+    [Header("Color según resultado")]
+    [Tooltip("Color del texto cuando el jugador gana (queda como el último con vida).")]
+    [SerializeField] private Color victoryColor = Color.white;
+
+    [Tooltip("Color del texto cuando el jugador pierde. Por defecto #E1610F.")]
+    [SerializeField] private Color defeatColor = new Color(225f / 255f, 97f / 255f, 15f / 255f);
 
     private bool matchEndTriggered;
 
@@ -39,7 +40,8 @@ public class GameOverController : MonoBehaviour
 
         if (titleText != null)
         {
-            titleText.text = playerWon ? "Victory" : "Game Over";
+            titleText.text = playerWon ? "VICTORY" : "DEFEAT";
+            titleText.color = playerWon ? victoryColor : defeatColor;
         }
 
         StartCoroutine(ShowPanelAfterDelay());

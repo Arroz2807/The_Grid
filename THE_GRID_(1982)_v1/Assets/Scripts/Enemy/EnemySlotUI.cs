@@ -1,41 +1,57 @@
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-/// <summary>
-/// Un único selector de "Enemigo N: [tipo]". No sabe cuántos slots hay en
-/// total ni dónde se ubican — eso es trabajo de EnemySelectionMenu. Sólo
-/// sabe escribir su propia elección en MatchConfig.
-/// </summary>
-public class EnemySlotUI : MonoBehaviour
+public class EnemySlotUI : MonoBehaviour, INavigableOption
 {
     [SerializeField] private TMP_Text labelText;
-    [SerializeField] private TMP_Dropdown typeDropdown;
+    [SerializeField] private TMP_Text typeText;
+    [SerializeField] private Color normalColor = new Color(0.5f, 0.5f, 0.5f);
+    [SerializeField] private Color selectedColor = Color.cyan;
+
+    private static readonly EnemyType[] AllTypes = (EnemyType[])System.Enum.GetValues(typeof(EnemyType));
 
     private int slotIndex;
+    private EnemyType currentType;
+
+    public RectTransform CursorAnchor => labelText != null ? labelText.rectTransform : (RectTransform)transform;
 
     public void Initialize(int index)
     {
         slotIndex = index;
+        currentType = EnemyType.Random;
 
-        if (labelText != null)
-        {
-            labelText.text = $"Enemigo {index + 1}";
-        }
+        if (labelText != null) labelText.text = $"Enemy {index + 1}";
 
-        // Las opciones salen de los nombres del enum, no tipeadas a mano
-        // acá — así nunca pueden quedar desincronizadas del orden real de
-        // EnemyType.
-        typeDropdown.ClearOptions();
-        typeDropdown.AddOptions(new List<string>(System.Enum.GetNames(typeof(EnemyType))));
-        typeDropdown.value = 0;
-        typeDropdown.onValueChanged.AddListener(HandleTypeChanged);
+        UpdateTypeText();
+        ApplyVisual(false);
 
-        MatchConfig.SetEnemyType(slotIndex, EnemyType.Random);
+        MatchConfig.SetEnemyType(slotIndex, currentType);
     }
 
-    private void HandleTypeChanged(int optionIndex)
+    public void OnSelected() => ApplyVisual(true);
+    public void OnDeselected() => ApplyVisual(false);
+    public void OnConfirm() { }
+
+    public void OnChangeValue(int direction)
     {
-        MatchConfig.SetEnemyType(slotIndex, (EnemyType)optionIndex);
+        int currentIndex = System.Array.IndexOf(AllTypes, currentType);
+        int nextIndex = (currentIndex + direction + AllTypes.Length) % AllTypes.Length;
+        currentType = AllTypes[nextIndex];
+
+        UpdateTypeText();
+        Debug.Log($"{name}: tipo cambiado a {currentType}.");
+        MatchConfig.SetEnemyType(slotIndex, currentType);
+    }
+
+    private void UpdateTypeText()
+    {
+        if (typeText != null) typeText.text = $"<  {currentType}  >";
+    }
+
+    private void ApplyVisual(bool selected)
+    {
+        Color color = selected ? selectedColor : normalColor;
+        if (labelText != null) labelText.color = color;
+        if (typeText != null) typeText.color = color;
     }
 }
