@@ -107,11 +107,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LightCycleController
   gridManager: {fileID: 0}
   trailManager: {fileID: 0}
-  moveInterval: 0.15
+  moveInterval: 0.125
   startCell: {x: 8, y: 13}
   startDirection: {x: 0, y: 1}
-  ghostDarkenFactor: 0.4
   trailDarkenFactor: 0.7
+  maxTrailLength: 50
 --- !u!114 &248705241904797708
 MonoBehaviour:
   m_ObjectHideFlags: 0

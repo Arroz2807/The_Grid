@@ -107,11 +107,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LightCycleController
   gridManager: {fileID: 0}
   trailManager: {fileID: 0}
-  moveInterval: 0.15
+  moveInterval: 0.125
   startCell: {x: 8, y: 2}
   startDirection: {x: 0, y: 1}
-  ghostDarkenFactor: 0.4
   trailDarkenFactor: 0.7
+  maxTrailLength: 50
 --- !u!114 &4484882807114646343
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -124,4 +124,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4bb9b2962561dea459f5dc66106ede17, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardInputProvider
-  trailToggleKey: 113

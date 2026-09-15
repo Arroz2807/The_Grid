@@ -2,25 +2,41 @@ using UnityEngine;
 
 /// <summary>
 /// Punto único de navegación del menú principal: qué panel se muestra y
-/// cuándo se pasa a la escena de juego. No construye contenido de UI (eso
-/// es EnemySelectionMenu) ni sabe cómo se carga una escena (eso es
-/// SceneLoader) — sólo decide el flujo entre pantallas.
+/// cuándo se pasa a la escena de juego.
 /// </summary>
 public class MainMenuManager : MonoBehaviour
 {
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject enemySelectionPanel;
+    [SerializeField] private GameObject creditsPanel;
+    [SerializeField] private GameObject settingsPanel;
+
+    private void ShowOnly(GameObject panel)
+    {
+        mainMenuPanel.SetActive(panel == mainMenuPanel);
+        enemySelectionPanel.SetActive(panel == enemySelectionPanel);
+        creditsPanel.SetActive(panel == creditsPanel);
+        settingsPanel.SetActive(panel == settingsPanel);
+    }
 
     public void OnPlayButtonClicked()
     {
-        mainMenuPanel.SetActive(false);
-        enemySelectionPanel.SetActive(true);
+        ShowOnly(enemySelectionPanel);
     }
 
-    public void OnBackFromSelectionButtonClicked()
+    public void OnCreditsButtonClicked()
     {
-        enemySelectionPanel.SetActive(false);
-        mainMenuPanel.SetActive(true);
+        ShowOnly(creditsPanel);
+    }
+
+    public void OnSettingsButtonClicked()
+    {
+        ShowOnly(settingsPanel);
+    }
+
+    public void OnBackToMainMenuButtonClicked()
+    {
+        ShowOnly(mainMenuPanel);
     }
 
     public void OnStartMatchButtonClicked()

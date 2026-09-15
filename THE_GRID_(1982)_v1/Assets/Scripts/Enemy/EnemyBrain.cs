@@ -8,7 +8,7 @@ using UnityEngine;
 /// al IEnemyBehavior asignado cuál prefiere.
 /// </summary>
 [RequireComponent(typeof(LightCycleController))]
-public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleInputProvider
+public class EnemyBrain : MonoBehaviour, IDirectionInputProvider
 {
     private GridManager gridManager;
     private IEnemyBehavior behavior;
@@ -16,7 +16,6 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
     private LightCycleController target;
 
     private Vector2Int? pendingDirection;
-    private bool pendingToggleRequest;
 
     private void Awake()
     {
@@ -44,23 +43,13 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
     {
         List<Vector2Int> validDirections = GetValidDirections();
 
-        EnemyDecisionContext context = new EnemyDecisionContext(controller, validDirections, target, gridManager);
-
-        if (behavior.ShouldToggleTrail(context))
-        {
-            pendingToggleRequest = true;
-        }
-
         if (validDirections.Count == 0)
         {
             return;
         }
 
-        // Antes esto se traducía a un giro relativo (TurnInput) para
-        // encajar con la vieja IDirectionInputProvider; ahora la interfaz
-        // trabaja directamente en direcciones absolutas, así que la
-        // elección del comportamiento se entrega tal cual, sin ningún
-        // paso de conversión intermedio.
+        EnemyDecisionContext context = new EnemyDecisionContext(controller, validDirections, target, gridManager);
+
         pendingDirection = validDirections.Count == 1
             ? validDirections[0]
             : behavior.ChooseDirection(context);
@@ -87,13 +76,6 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider, ITrailToggleIn
         Vector2Int? result = pendingDirection;
         pendingDirection = null;
         return result;
-    }
-
-    public bool WasTrailToggleRequested()
-    {
-        if (!pendingToggleRequest) return false;
-        pendingToggleRequest = false;
-        return true;
     }
 
 #if UNITY_EDITOR

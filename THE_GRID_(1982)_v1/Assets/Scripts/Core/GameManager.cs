@@ -12,6 +12,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private GridManager gridManager;
     [SerializeField] private TrailManager trailManager;
+    [SerializeField] private MatchStarter matchStarter;
 
     public static event System.Action<bool> OnMatchEnded;
 
@@ -20,14 +21,16 @@ public class GameManager : MonoBehaviour
     private void OnEnable()
     {
         LightCycleController.OnAnyPlayerDied += HandleEntityDied;
+        MatchStarter.OnMatchReady += HandleMatchReady;
     }
 
     private void OnDisable()
     {
         LightCycleController.OnAnyPlayerDied -= HandleEntityDied;
+        MatchStarter.OnMatchReady -= HandleMatchReady;
     }
 
-    private void Start()
+    private void HandleMatchReady()
     {
         GameObject playerInstance = Instantiate(playerPrefab);
 
@@ -39,6 +42,8 @@ public class GameManager : MonoBehaviour
             trailManager,
             isPlayer: true
         );
+
+        matchStarter?.RegisterEntity(playerController);
 
         SpawnEnemies(playerController);
     }
@@ -95,6 +100,7 @@ public class GameManager : MonoBehaviour
         );
 
         aliveEnemyCount++;
+        matchStarter?.RegisterEntity(enemyController);
     }
 
     /// <summary>

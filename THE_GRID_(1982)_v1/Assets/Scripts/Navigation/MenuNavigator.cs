@@ -81,9 +81,18 @@ public class MenuNavigator : MonoBehaviour
         {
             case MenuAction.MoveUp: MoveSelection(-1); break;
             case MenuAction.MoveDown: MoveSelection(1); break;
-            case MenuAction.DecreaseValue: options[selectedIndex].OnChangeValue(-1); break;
-            case MenuAction.IncreaseValue: options[selectedIndex].OnChangeValue(1); break;
-            case MenuAction.Confirm: options[selectedIndex].OnConfirm(); break;
+            case MenuAction.DecreaseValue:
+                options[selectedIndex].OnChangeValue(-1);
+                AudioManager.Instance?.PlaySfx(SfxId.MenuNavigate);
+                break;
+            case MenuAction.IncreaseValue:
+                options[selectedIndex].OnChangeValue(1);
+                AudioManager.Instance?.PlaySfx(SfxId.MenuNavigate);
+                break;
+            case MenuAction.Confirm:
+                options[selectedIndex].OnConfirm();
+                AudioManager.Instance?.PlaySfx(SfxId.MenuConfirm);
+                break;
         }
 
         // Se recalcula todos los frames (no sólo al cambiar de selección)
@@ -96,6 +105,7 @@ public class MenuNavigator : MonoBehaviour
     {
         int newIndex = (selectedIndex + delta + options.Count) % options.Count;
         SelectIndex(newIndex, notifyOld: true);
+        AudioManager.Instance?.PlaySfx(SfxId.MenuNavigate);
     }
 
     private void SelectIndex(int index, bool notifyOld)

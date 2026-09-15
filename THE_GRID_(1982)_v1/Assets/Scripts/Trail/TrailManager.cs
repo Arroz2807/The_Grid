@@ -1,10 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Encargado de la parte VISUAL del rastro: instanciar una sección
-/// permanente en una celda dada, con el color de quien la dejó. No decide
-/// si hubo colisión ni cuándo hay que dejar rastro — eso lo decide
-/// LightCycleController, que es quien lo llama.
+/// Encargado de la parte VISUAL del rastro: instanciar y destruir
+/// secciones en una celda dada. No decide cuándo hay que dejar rastro ni
+/// cuándo un segmento debe desaparecer por longitud máxima — eso lo
+/// decide LightCycleController, que es quien lo llama.
 /// </summary>
 public class TrailManager : MonoBehaviour
 {
@@ -14,11 +14,11 @@ public class TrailManager : MonoBehaviour
 
     /// <summary>
     /// Instancia una sección de rastro en la celda indicada, con el color
-    /// indicado. Nunca se destruye ni se recicla (sin pooling): el
-    /// requisito es que el rastro sea permanente, así que no hay ningún
-    /// mecanismo de limpieza acá a propósito.
+    /// indicado, y devuelve el GameObject creado — quien lo llama es
+    /// responsable de guardar esa referencia si más adelante necesita
+    /// eliminarlo (por ejemplo, al superar la longitud máxima de rastro).
     /// </summary>
-    public void SpawnTrailSegment(Vector2Int cell, Color color)
+    public GameObject SpawnTrailSegment(Vector2Int cell, Color color)
     {
         Vector3 worldPos = gridManager.GridToWorld(cell);
         GameObject segment = Instantiate(trailSegmentPrefab, worldPos, Quaternion.identity, trailContainer);
@@ -28,6 +28,22 @@ public class TrailManager : MonoBehaviour
         if (segment.TryGetComponent(out SpriteRenderer spriteRenderer))
         {
             spriteRenderer.color = color;
+        }
+
+        return segment;
+    }
+
+    /// <summary>
+    /// Elimina un segmento de rastro creado previamente con
+    /// SpawnTrailSegment. Sólo se ocupa de la parte visual — liberar la
+    /// celda en GridManager sigue siendo responsabilidad de quien pidió
+    /// la eliminación.
+    /// </summary>
+    public void RemoveTrailSegment(GameObject segment)
+    {
+        if (segment != null)
+        {
+            Destroy(segment);
         }
     }
 }

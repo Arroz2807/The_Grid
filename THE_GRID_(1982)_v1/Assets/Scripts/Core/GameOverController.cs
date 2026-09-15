@@ -4,9 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// Muestra el panel de fin de partida cuando GameManager avisa que la
-/// partida terminó, con el texto y color correspondientes al resultado.
-/// Su única responsabilidad es de presentación — nunca decide si se ganó
-/// o se perdió, sólo reacciona a lo que ya decidió GameManager.
+/// partida terminó, con el texto, color, sonido y música correspondientes
+/// al resultado — todo disparado en el mismo instante en que el panel se
+/// hace visible, nunca antes.
 /// </summary>
 public class GameOverController : MonoBehaviour
 {
@@ -15,11 +15,12 @@ public class GameOverController : MonoBehaviour
     [SerializeField] private float panelRevealDelay = 1f;
 
     [Header("Color según resultado")]
-    [Tooltip("Color del texto cuando el jugador gana (queda como el último con vida).")]
     [SerializeField] private Color victoryColor = Color.white;
-
-    [Tooltip("Color del texto cuando el jugador pierde. Por defecto #E1610F.")]
     [SerializeField] private Color defeatColor = new Color(225f / 255f, 97f / 255f, 15f / 255f);
+
+    [Header("Audio")]
+    [SerializeField] private AudioClip victoryMusic;
+    [SerializeField] private AudioClip defeatMusic;
 
     private bool matchEndTriggered;
 
@@ -44,10 +45,10 @@ public class GameOverController : MonoBehaviour
             titleText.color = playerWon ? victoryColor : defeatColor;
         }
 
-        StartCoroutine(ShowPanelAfterDelay());
+        StartCoroutine(ShowPanelAfterDelay(playerWon));
     }
 
-    private IEnumerator ShowPanelAfterDelay()
+    private IEnumerator ShowPanelAfterDelay(bool playerWon)
     {
         yield return new WaitForSecondsRealtime(panelRevealDelay);
 
@@ -55,6 +56,14 @@ public class GameOverController : MonoBehaviour
         {
             gameOverPanel.SetActive(true);
         }
+
+        // Sonido y música de resultado se disparan acá, junto con el
+        // panel — no antes, cuando GameManager.OnMatchEnded avisó que la
+        // partida terminó — para que coincidan con lo que el jugador
+        // realmente ve en pantalla. loop: false porque es un resultado
+        // puntual, no una pista de fondo continua.
+        AudioManager.Instance?.PlaySfx(playerWon ? SfxId.Victory : SfxId.Defeat);
+        AudioManager.Instance?.PlayMusic(playerWon ? victoryMusic : defeatMusic, loop: false);
     }
 
     public void OnRetryButtonClicked()

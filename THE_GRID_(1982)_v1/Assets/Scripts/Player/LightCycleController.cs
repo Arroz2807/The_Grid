@@ -1,16 +1,17 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Mueve al ciclo de luz celda por celda, a ritmo constante, aplicando la
 /// dirección absoluta pedida por el proveedor de input. Antes de cada
 /// paso, consulta a GridManager si el camino está libre; si no lo está,
-/// muere. No sabe cómo se guarda la ocupación de la grilla ni cómo se
-/// dibuja el rastro — solo pide esas cosas a través de referencias a
-/// GridManager y TrailManager.
+/// muere. El rastro que deja tiene una longitud máxima configurable: al
+/// superarla, el segmento más viejo desaparece, tanto visualmente como en
+/// la ocupación lógica de la grilla.
 ///
-/// Esta clase la usan tanto el jugador como cada enemigo: no sabe ni le
-/// importa si su IDirectionInputProvider es un teclado o una IA.
+/// Esta clase la usan tanto el jugador como cada enemigo — cada instancia
+/// (cada prefab) puede tener su propia longitud máxima de rastro.
 /// </summary>
 public class LightCycleController : MonoBehaviour
 {
@@ -27,24 +28,39 @@ public class LightCycleController : MonoBehaviour
     [SerializeField] private Vector2Int startDirection = Vector2Int.up;
 
     [Header("Rastro")]
-    [Tooltip("Qué tan oscuro se ve el jugador mientras el rastro está apagado, relativo a su propio color. 1 = sin cambio, 0 = negro.")]
-    [Range(0f, 1f)]
-    [SerializeField] private float ghostDarkenFactor = 0.4f;
-
     [Tooltip("Qué tan oscuro es el rastro (y la explosión al morir) respecto al color propio. 1 = igual de brillante, 0 = negro.")]
     [Range(0f, 1f)]
     [SerializeField] private float trailDarkenFactor = 0.7f;
+
+    [Tooltip("Cantidad máxima de segmentos de rastro que esta entidad puede tener a la vez. Al superarla, el más viejo desaparece.")]
+    [Min(1)]
+    [SerializeField] private int maxTrailLength = 15;
 
     public static event Action<LightCycleController> OnAnyPlayerDied;
 
     public event Action OnCellEntered;
 
+    // Guarda, en orden, cada segmento de rastro propio junto con la celda
+    // que ocupa — un Queue es exactamente la estructura correcta para
+    // "el próximo en desaparecer es siempre el más viejo" (FIFO).
+    private readonly Queue<TrailEntry> trailSegments = new Queue<TrailEntry>();
+
+    private readonly struct TrailEntry
+    {
+        public readonly GameObject Segment;
+        public readonly Vector2Int Cell;
+
+        public TrailEntry(GameObject segment, Vector2Int cell)
+        {
+            Segment = segment;
+            Cell = cell;
+        }
+    }
+
     private IDirectionInputProvider inputProvider;
-    private ITrailToggleInputProvider trailToggleInput;
     private SpriteRenderer spriteRenderer;
 
     private Color normalColor;
-    private Color ghostColor;
     private Color trailColor;
 
     private Vector2Int currentCell;
@@ -53,13 +69,11 @@ public class LightCycleController : MonoBehaviour
 
     private float moveTimer;
     private bool isAlive = true;
-    private bool trailEnabled = true;
     private bool isPlayer;
 
     public Vector2Int CurrentCell => currentCell;
     public Vector2Int Direction => direction;
     public Color TrailColor => trailColor;
-    public bool TrailEnabled => trailEnabled;
 
     /// <summary>
     /// True si esta instancia es la entidad controlada por el jugador
@@ -67,14 +81,24 @@ public class LightCycleController : MonoBehaviour
     /// </summary>
     public bool IsPlayer => isPlayer;
 
+    // Expuesto para que MatchStarter pueda leer el intervalo configurado
+    // en el prefab y usarlo como "destino" del ramp-up, y también para
+    // pisarlo durante la aceleración inicial.
+    public float MoveInterval => moveInterval;
+
+    public void SetMoveInterval(float interval)
+    {
+        moveInterval = Mathf.Max(0.01f, interval);
+    }
+
+
     private void Awake()
     {
         inputProvider = GetComponent<IDirectionInputProvider>();
-        trailToggleInput = GetComponent<ITrailToggleInputProvider>();
 
-        if (inputProvider == null || trailToggleInput == null)
+        if (inputProvider == null)
         {
-            Debug.LogError($"{name}: falta un componente que implemente IDirectionInputProvider y ITrailToggleInputProvider (por ejemplo, KeyboardInputProvider o EnemyBrain). Desactivando este objeto.");
+            Debug.LogError($"{name}: falta un componente que implemente IDirectionInputProvider (por ejemplo, KeyboardInputProvider o EnemyBrain). Desactivando este objeto.");
             enabled = false;
             return;
         }
@@ -84,7 +108,6 @@ public class LightCycleController : MonoBehaviour
         if (spriteRenderer != null)
         {
             normalColor = spriteRenderer.color;
-            ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
             trailColor = DarkenColor(normalColor, trailDarkenFactor);
         }
     }
@@ -99,16 +122,6 @@ public class LightCycleController : MonoBehaviour
         GameManager.OnMatchEnded -= HandleMatchEnded;
     }
 
-    /// <summary>
-    /// Apenas termina la partida, cualquier entidad que siga viva deja de
-    /// procesar input y de moverse. Sin esto, el jugador (si ganó) o los
-    /// enemigos que sigan de pie (si perdiste) seguirían jugando de fondo
-    /// mientras se muestra el panel de Game Over — y ahora que el
-    /// movimiento usa las mismas cuatro teclas (WASD) que la navegación
-    /// de ese panel, esas pulsaciones terminarían moviendo al personaje
-    /// además de navegar el menú. Reutiliza el mismo isAlive que ya frena
-    /// Update() al morir — no hace falta ningún estado nuevo.
-    /// </summary>
     private void HandleMatchEnded(bool playerWon)
     {
         isAlive = false;
@@ -125,14 +138,13 @@ public class LightCycleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Asigna el color propio de esta entidad y recalcula los colores derivados:
-    /// color normal, color con el rastro apagado y color del rastro/explosión.
-    /// GameManager lo llama al crear cada enemigo.
+    /// Asigna el color propio de esta entidad y recalcula el color
+    /// derivado del rastro/explosión. GameManager lo llama al crear cada
+    /// enemigo.
     /// </summary>
     public void SetColor(Color color)
     {
         normalColor = color;
-        ghostColor = DarkenColor(normalColor, ghostDarkenFactor);
         trailColor = DarkenColor(normalColor, trailDarkenFactor);
 
         if (spriteRenderer != null)
@@ -175,8 +187,6 @@ public class LightCycleController : MonoBehaviour
 
         gridManager.SetCellOccupied(currentCell);
 
-        ApplyTrailVisualFeedback();
-
         OnCellEntered?.Invoke();
     }
 
@@ -185,7 +195,6 @@ public class LightCycleController : MonoBehaviour
         if (!isAlive) return;
 
         HandleTurnInput();
-        HandleTrailToggleInput();
 
         moveTimer += Time.deltaTime;
 
@@ -207,29 +216,11 @@ public class LightCycleController : MonoBehaviour
         // CONFIRMADA por un Step()), nunca contra "queuedDirection" —
         // así, sin importar cuántas direcciones distintas lleguen antes
         // del próximo Step(), ninguna combinación puede terminar
-        // formando un giro de 180°: sólo se descarta si es EXACTAMENTE
-        // la opuesta a la dirección confirmada.
+        // formando un giro de 180°.
         if (candidateDirection != -direction)
         {
             queuedDirection = candidateDirection;
         }
-    }
-
-    private void HandleTrailToggleInput()
-    {
-        if (!trailToggleInput.WasTrailToggleRequested()) return;
-
-        trailEnabled = !trailEnabled;
-        ApplyTrailVisualFeedback();
-    }
-
-    private void ApplyTrailVisualFeedback()
-    {
-        if (spriteRenderer == null) return;
-
-        spriteRenderer.color = trailEnabled
-            ? normalColor
-            : ghostColor;
     }
 
     private void Step()
@@ -244,13 +235,19 @@ public class LightCycleController : MonoBehaviour
             return;
         }
 
-        if (trailEnabled)
+        // El rastro ya no se puede apagar: siempre se deja un segmento en
+        // la celda que se abandona.
+        GameObject segment = trailManager.SpawnTrailSegment(currentCell, trailColor);
+        trailSegments.Enqueue(new TrailEntry(segment, currentCell));
+
+        // Si con este nuevo segmento se superó la longitud máxima, el más
+        // viejo desaparece — visualmente y en la ocupación lógica de su
+        // celda, que vuelve a estar libre.
+        if (trailSegments.Count > maxTrailLength)
         {
-            trailManager.SpawnTrailSegment(currentCell, trailColor);
-        }
-        else
-        {
-            gridManager.ClearCellOccupied(currentCell);
+            TrailEntry oldest = trailSegments.Dequeue();
+            trailManager.RemoveTrailSegment(oldest.Segment);
+            gridManager.ClearCellOccupied(oldest.Cell);
         }
 
         currentCell = nextCell;
