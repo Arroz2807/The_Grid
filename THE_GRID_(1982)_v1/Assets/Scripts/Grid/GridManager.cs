@@ -21,9 +21,7 @@ public class GridManager : MonoBehaviour
 
     // Grilla lógica de ocupación. true = la celda está bloqueada — ya sea
     // por rastro permanente, o porque una entidad viva está parada ahí en
-    // este momento. Este array no distingue entre esos dos casos a
-    // propósito: para la pregunta "¿puedo entrar acá?", da exactamente lo
-    // mismo por qué está ocupada.
+    // este momento.
     private bool[,] occupiedCells;
 
     public int Columns => columns;
@@ -53,28 +51,43 @@ public class GridManager : MonoBehaviour
         return occupiedCells[cell.x, cell.y];
     }
 
-    /// <summary>
-    /// Marca una celda como ocupada. La llama LightCycleController tanto
-    /// al aparecer en su celda inicial como al entrar a cada celda nueva
-    /// — con rastro encendido o apagado, siempre: una entidad viva ocupa
-    /// físicamente el lugar donde está parada.
-    /// </summary>
     public void SetCellOccupied(Vector2Int cell)
     {
         if (!IsInsideGrid(cell)) return;
         occupiedCells[cell.x, cell.y] = true;
     }
 
-    /// <summary>
-    /// Libera una celda. Se usa únicamente cuando una entidad abandona una
-    /// celda CON el rastro apagado — si el rastro está encendido, la celda
-    /// debe seguir ocupada para siempre, así que esto nunca se llama en
-    /// ese caso.
-    /// </summary>
     public void ClearCellOccupied(Vector2Int cell)
     {
         if (!IsInsideGrid(cell)) return;
         occupiedCells[cell.x, cell.y] = false;
+    }
+
+    /// <summary>
+    /// Intenta encontrar una celda libre al azar en hasta maxAttempts
+    /// intentos. Devuelve true si encontró una; false si no hubo ninguna
+    /// celda libre disponible en esa cantidad de intentos. Usada por
+    /// PowerUpSpawner para encontrar posiciones válidas de aparición sin
+    /// necesitar conocer la lógica de power-ups ni de participantes.
+    /// </summary>
+    public bool TryGetRandomFreeCell(int maxAttempts, out Vector2Int result)
+    {
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            Vector2Int candidate = new Vector2Int(
+                Random.Range(0, columns),
+                Random.Range(0, rows)
+            );
+
+            if (!IsCellOccupied(candidate))
+            {
+                result = candidate;
+                return true;
+            }
+        }
+
+        result = Vector2Int.zero;
+        return false;
     }
 
 #if UNITY_EDITOR

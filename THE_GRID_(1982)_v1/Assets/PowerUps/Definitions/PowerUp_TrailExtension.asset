@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1a506971365ad84fb443fec842cd0fc, type: 3}
+  m_Name: PowerUp_TrailExtension
+  m_EditorClassIdentifier: Assembly-CSharp::PowerUpDefinition
+  type: 2
+  displayName: Extension
+  pickupPrefab: {fileID: 0}
+  color: {r: 1, g: 0, b: 0.83267355, a: 1}
+  spawnWeight: 0.8
+  enabled: 1
+  duration: 50
+  magnitude: 5
+  trailLengthCap: 75
+  playerCanPickUp: 1
+  enemyCanPickUp: 1
+  pickupSfxId: 0

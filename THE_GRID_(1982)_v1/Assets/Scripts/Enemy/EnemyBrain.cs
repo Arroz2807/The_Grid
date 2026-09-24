@@ -4,8 +4,10 @@ using UnityEngine;
 /// <summary>
 /// Es el IDirectionInputProvider de un enemigo. En cada celda nueva
 /// (evento OnCellEntered de LightCycleController): calcula qué
-/// direcciones son legales, arma el contexto de decisión, y le pregunta
-/// al IEnemyBehavior asignado cuál prefiere.
+/// direcciones son legales, consulta opcionalmente a PowerUpSeeker si hay
+/// un power-up que valga la pena perseguir, y si no, delega en
+/// IEnemyBehavior. EnemyBrain orquesta; no decide la estrategia ni la
+/// búsqueda de power-ups — eso es trabajo de sus colaboradores.
 /// </summary>
 [RequireComponent(typeof(LightCycleController))]
 public class EnemyBrain : MonoBehaviour, IDirectionInputProvider
@@ -15,6 +17,10 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider
     private LightCycleController controller;
     private LightCycleController target;
 
+    // Opcional: si se asigna, la IA busca power-ups según esta config.
+    // Si es null, ignora todos los power-ups — retrocompatible.
+    private PowerUpSeeker powerUpSeeker;
+
     private Vector2Int? pendingDirection;
 
     private void Awake()
@@ -22,11 +28,28 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider
         controller = GetComponent<LightCycleController>();
     }
 
-    public void Initialize(GridManager grid, IEnemyBehavior chosenBehavior, LightCycleController initialTarget)
+    /// <summary>
+    /// Llamado por GameManager después de instanciar. powerUpSpawner puede
+    /// ser null (sin power-ups) o config puede ser null (IA ignora power-ups).
+    /// </summary>
+    public void Initialize(
+        GridManager grid,
+        IEnemyBehavior chosenBehavior,
+        LightCycleController initialTarget,
+        PowerUpSpawner powerUpSpawner = null,
+        PowerUpAIConfig powerUpConfig = null)
     {
         gridManager = grid;
         behavior = chosenBehavior;
         target = initialTarget;
+
+        if (powerUpSpawner != null && powerUpConfig != null)
+        {
+            powerUpSeeker = new PowerUpSeeker(
+                gridManager,
+                powerUpConfig,
+                powerUpSpawner.ActivePickups);
+        }
     }
 
     private void OnEnable()
@@ -43,16 +66,39 @@ public class EnemyBrain : MonoBehaviour, IDirectionInputProvider
     {
         List<Vector2Int> validDirections = GetValidDirections();
 
-        if (validDirections.Count == 0)
+        if (validDirections.Count == 0) return;
+
+        Vector2Int chosen;
+
+        // 1. Intentar ir hacia un power-up (sólo si hay un seeker activo).
+        if (powerUpSeeker != null)
         {
-            return;
+            Vector2Int? powerUpDir = powerUpSeeker.GetDirectionTowardsBestPickup(
+                controller.CurrentCell,
+                controller.Direction,
+                validDirections);
+
+            if (powerUpDir.HasValue)
+            {
+                chosen = powerUpDir.Value;
+                pendingDirection = chosen;
+                return;
+            }
         }
 
-        EnemyDecisionContext context = new EnemyDecisionContext(controller, validDirections, target, gridManager);
+        // 2. Sin power-up de interés: comportamiento normal.
+        if (validDirections.Count == 1)
+        {
+            chosen = validDirections[0];
+        }
+        else
+        {
+            EnemyDecisionContext context = new EnemyDecisionContext(
+                controller, validDirections, target, gridManager);
+            chosen = behavior.ChooseDirection(context);
+        }
 
-        pendingDirection = validDirections.Count == 1
-            ? validDirections[0]
-            : behavior.ChooseDirection(context);
+        pendingDirection = chosen;
     }
 
     private List<Vector2Int> GetValidDirections()

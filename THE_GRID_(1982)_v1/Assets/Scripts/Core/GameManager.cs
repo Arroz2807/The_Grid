@@ -13,6 +13,17 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GridManager gridManager;
     [SerializeField] private TrailManager trailManager;
     [SerializeField] private MatchStarter matchStarter;
+    [SerializeField] private PowerUpSpawner powerUpSpawner;
+
+    [Header("IA — Power-ups (opcional por tipo)")]
+    [Tooltip("Config de power-ups para Chase. Null = ignora power-ups.")]
+    [SerializeField] private PowerUpAIConfig chaseAIConfig;
+    [Tooltip("Config de power-ups para Predict.")]
+    [SerializeField] private PowerUpAIConfig predictAIConfig;
+    [Tooltip("Config de power-ups para Ambush.")]
+    [SerializeField] private PowerUpAIConfig ambushAIConfig;
+    [Tooltip("Config de power-ups para Random.")]
+    [SerializeField] private PowerUpAIConfig randomAIConfig;
 
     public static event System.Action<bool> OnMatchEnded;
 
@@ -44,6 +55,7 @@ public class GameManager : MonoBehaviour
         );
 
         matchStarter?.RegisterEntity(playerController);
+        powerUpSpawner?.RegisterEntity(playerController);
 
         SpawnEnemies(playerController);
     }
@@ -96,11 +108,14 @@ public class GameManager : MonoBehaviour
         enemyBrain.Initialize(
             gridManager,
             EnemyBehaviorFactory.Create(type),
-            playerController
+            playerController,
+            powerUpSpawner,
+            GetPowerUpAIConfig(type)
         );
 
         aliveEnemyCount++;
         matchStarter?.RegisterEntity(enemyController);
+        powerUpSpawner?.RegisterEntity(enemyController);
     }
 
     /// <summary>
@@ -161,6 +176,18 @@ public class GameManager : MonoBehaviour
         return index < 2
             ? Vector2Int.up
             : Vector2Int.down;
+    }
+
+    private PowerUpAIConfig GetPowerUpAIConfig(EnemyType type)
+    {
+        switch (type)
+        {
+            case EnemyType.Chase: return chaseAIConfig;
+            case EnemyType.Predict: return predictAIConfig;
+            case EnemyType.Ambush: return ambushAIConfig;
+            case EnemyType.Random: return randomAIConfig;
+            default: return null;
+        }
     }
 
     private void HandleEntityDied(LightCycleController died)

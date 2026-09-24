@@ -86,9 +86,42 @@ public class LightCycleController : MonoBehaviour
     // pisarlo durante la aceleración inicial.
     public float MoveInterval => moveInterval;
 
+    // TurboEffect necesita leer el color actual para poder restaurarlo
+    // al terminar. Sólo lectura — SetColor() sigue siendo el único punto
+    // donde el color cambia.
+    public Color NormalColor => normalColor;
+
     public void SetMoveInterval(float interval)
     {
         moveInterval = Mathf.Max(0.01f, interval);
+    }
+
+    // El escudo es un estado que ShieldEffect activa y desactiva.
+    // LightCycleController no sabe qué es un ShieldEffect — sólo sabe
+    // si tiene escudo activo o no, y expone ese estado para que Step()
+    // pueda consultarlo sin acoplarse al sistema de power-ups.
+    private bool hasShield;
+
+    public bool HasActiveShield => hasShield;
+
+    public void ActivateShield() { hasShield = true; }
+    public void DeactivateShield() { hasShield = false; }
+
+    public int MaxTrailLength => maxTrailLength;
+
+    /// <summary>
+    /// Aumenta el límite máximo de segmentos de rastro de esta entidad.
+    /// Sólo afecta a esta instancia — cada LightCycleController tiene su
+    /// propia cola de rastro y su propio maxTrailLength. Si el nuevo valor
+    /// supera el tope global indicado, se recorta. Devuelve false si ya
+    /// está en el tope y el cambio no tuvo efecto.
+    /// </summary>
+    public bool TryIncreaseMaxTrailLength(int amount, int cap)
+    {
+        if (maxTrailLength >= cap) return false;
+
+        maxTrailLength = Mathf.Min(maxTrailLength + amount, cap);
+        return true;
     }
 
 
@@ -231,8 +264,37 @@ public class LightCycleController : MonoBehaviour
 
         if (!gridManager.IsInsideGrid(nextCell) || gridManager.IsCellOccupied(nextCell))
         {
-            Die(nextCell);
-            return;
+            if (hasShield)
+            {
+                // El escudo absorbe el impacto. Se consume antes de buscar
+                // una dirección alternativa, para que no se vuelva a
+                // consultar si tampoco hay salida en la dirección elegida.
+                hasShield = false;
+                OnShieldConsumed?.Invoke(this);
+
+                Vector2Int? fallback = FindFallbackDirection();
+                if (fallback.HasValue)
+                {
+                    // Redirigimos y continuamos — el movimiento no se
+                    // interrumpe, pero el jugador pierde el control de
+                    // su dirección por este paso.
+                    queuedDirection = fallback.Value;
+                    direction = queuedDirection;
+                    nextCell = currentCell + direction;
+                }
+                else
+                {
+                    // Sin ninguna salida válida, el escudo no puede salvar
+                    // al participante — muere igual.
+                    Die(nextCell);
+                    return;
+                }
+            }
+            else
+            {
+                Die(nextCell);
+                return;
+            }
         }
 
         // El rastro ya no se puede apagar: siempre se deja un segmento en
@@ -256,6 +318,36 @@ public class LightCycleController : MonoBehaviour
         gridManager.SetCellOccupied(currentCell);
 
         OnCellEntered?.Invoke();
+    }
+
+    // Evento estático para que ShieldEffect sepa cuándo el escudo fue
+    // consumido y pueda destruir el visual. Estático igual que OnAnyPlayerDied.
+    public static event System.Action<LightCycleController> OnShieldConsumed;
+
+    /// <summary>
+    /// Busca la primera dirección (izquierda, derecha, o derecho) que lleve
+    /// a una celda válida y libre, excluyendo el reverso de la dirección
+    /// actual (para no girar 180°). Devuelve null si todas están bloqueadas.
+    /// </summary>
+    private Vector2Int? FindFallbackDirection()
+    {
+        Vector2Int[] candidates =
+        {
+            GridDirectionUtils.RotateLeft(direction),
+            GridDirectionUtils.RotateRight(direction),
+            direction,
+        };
+
+        foreach (Vector2Int candidate in candidates)
+        {
+            Vector2Int cell = currentCell + candidate;
+            if (gridManager.IsInsideGrid(cell) && !gridManager.IsCellOccupied(cell))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private void Die(Vector2Int attemptedCell)
