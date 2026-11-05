@@ -57,6 +57,18 @@ public class GridManager : MonoBehaviour
         occupiedCells[cell.x, cell.y] = true;
     }
 
+    /// <summary>
+    /// Resetea toda la grilla de ocupación a false. Lo llama
+    /// TrailManager.ClearAllTrails() entre oleadas de Waves para que las
+    /// celdas que tenían rastros de enemigos derrotados vuelvan a estar
+    /// libres. Nunca se llama en modo Custom.
+    /// </summary>
+    public void ClearAllOccupied()
+    {
+        System.Array.Clear(occupiedCells, 0, occupiedCells.Length);
+        Debug.Log("[GridManager] Ocupación completa reseteada.");
+    }
+
     public void ClearCellOccupied(Vector2Int cell)
     {
         if (!IsInsideGrid(cell)) return;

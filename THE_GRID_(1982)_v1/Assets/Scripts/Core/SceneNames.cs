@@ -20,4 +20,5 @@ public static class SceneNames
 
     // Ajustá este valor si tu escena de juego no se llama "Game".
     public const string Game = "Main";
+    public const string Ranking = "Ranking";
 }

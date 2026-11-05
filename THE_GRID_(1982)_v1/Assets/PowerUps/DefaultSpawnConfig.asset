@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PowerUpSpawnConfig
   powerUpsEnabled: 1
   maxSimultaneous: 3
-  minSpawnInterval: 7
-  maxSpawnInterval: 15
+  minSpawnInterval: 6
+  maxSpawnInterval: 14
   minDistanceFromParticipants: 3
   maxPlacementAttempts: 30
   availableDefinitions:

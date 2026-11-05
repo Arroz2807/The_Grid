@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b34d157a363f5246b12fe6ec3942aa6, type: 3}
+  m_Name: DefaultWaveProgressionConfig
+  m_EditorClassIdentifier: Assembly-CSharp::WaveProgressionConfig
+  predefinedWaves:
+  - label: Wave 1
+    enemyTypes: 00000000
+    speedMultiplier: 1
+    powerUpAIConfig: {fileID: 0}
+  - label: Wave 2
+    enemyTypes: 0000000001000000
+    speedMultiplier: 1
+    powerUpAIConfig: {fileID: 0}
+  - label: Wave 3
+    enemyTypes: 000000000000000001000000
+    speedMultiplier: 1.05
+    powerUpAIConfig: {fileID: 11400000, guid: a1ab64699323c9b459f271d06da59088, type: 2}
+  - label: Wave 4
+    enemyTypes: 000000000100000002000000
+    speedMultiplier: 1.05
+    powerUpAIConfig: {fileID: 11400000, guid: a1ab64699323c9b459f271d06da59088, type: 2}
+  - label: Wave 5
+    enemyTypes: 01000000010000000200000000000000
+    speedMultiplier: 1.1
+    powerUpAIConfig: {fileID: 11400000, guid: a1ab64699323c9b459f271d06da59088, type: 2}
+  - label: Wave 6
+    enemyTypes: 01000000020000000300000000000000
+    speedMultiplier: 1.15
+    powerUpAIConfig: {fileID: 11400000, guid: d9c612f2133745441bf5a5c27403aa99, type: 2}
+  - label: Wave 7
+    enemyTypes: 01000000010000000200000003000000
+    speedMultiplier: 1.2
+    powerUpAIConfig: {fileID: 11400000, guid: d9c612f2133745441bf5a5c27403aa99, type: 2}
+  - label: Wave 8
+    enemyTypes: 01000000020000000300000003000000
+    speedMultiplier: 1.25
+    powerUpAIConfig: {fileID: 11400000, guid: d9c612f2133745441bf5a5c27403aa99, type: 2}
+  scalingBaseEnemyCount: 4
+  maxEnemyCount: 4
+  scalingBaseSpeedMultiplier: 1.3
+  scalingSpeedLogFactor: 0.05
+  maxSpeedMultiplier: 2

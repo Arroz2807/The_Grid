@@ -32,6 +32,8 @@ public class PowerUpSpawner : MonoBehaviour
     /// completo, y sin poder modificar el diccionario accidentalmente.
     /// </summary>
     public IReadOnlyDictionary<Vector2Int, PowerUpPickup> ActivePickups => activePickups;
+    // WaveManager lo necesita para ajustar los intervalos entre oleadas.
+    public PowerUpSpawnConfig Config => config;
 
     private readonly List<LightCycleController> entities =
         new List<LightCycleController>();
@@ -53,19 +55,52 @@ public class PowerUpSpawner : MonoBehaviour
     /// </summary>
     public static event System.Action<Vector3, Color> OnPowerUpCollected;
 
+    // WaveManager puede pausar el spawner durante transiciones y ajustar
+    // los intervalos entre oleadas.
+    private bool spawningPaused;
+
+    public void SetSpawningPaused(bool paused)
+    {
+        spawningPaused = paused;
+    }
+
+    public void SetSpawnIntervals(float minInterval, float maxInterval)
+    {
+        if (config == null) return;
+        config.minSpawnInterval = minInterval;
+        config.maxSpawnInterval = maxInterval;
+    }
+
     private void OnEnable()
     {
         LightCycleController.OnAnyPlayerDied += HandleEntityDied;
+        GameManager.OnMatchEnded += HandleMatchEnded;
     }
 
     private void OnDisable()
     {
         LightCycleController.OnAnyPlayerDied -= HandleEntityDied;
+        GameManager.OnMatchEnded -= HandleMatchEnded;
+    }
+
+    private void HandleMatchEnded(bool playerWon)
+    {
+        // Detener el spawn de nuevos power-ups al terminar la partida.
+        // Los pickups ya existentes en la grilla se quedan — el jugador
+        // no se puede mover (isAlive = false), así que no puede recogerlos.
+        StopAllCoroutines();
     }
 
     private void Start()
     {
-        if (config != null && config.powerUpsEnabled)
+        // En modo Custom, MatchConfig.PowerUpsEnabled puede desactivarlos.
+        // En Waves siempre se usan — WaveManager controla la frecuencia.
+        bool shouldSpawn = config != null && config.powerUpsEnabled;
+
+        if (MatchConfig.GameMode == GameMode.Custom)
+            shouldSpawn = shouldSpawn && MatchConfig.PowerUpsEnabled;
+
+        if (shouldSpawn)
         {
             StartCoroutine(SpawnRoutine());
         }
@@ -99,6 +134,13 @@ public class PowerUpSpawner : MonoBehaviour
     {
         AudioManager.Instance?.PlaySfx(SfxId.PowerUpPickup);
         OnPowerUpCollected?.Invoke(pickup.transform.position, pickup.Definition.color);
+
+        // Puntos sólo si quien recoge es el jugador — los enemigos no
+        // acumulan score, evita que la IA "infle" el marcador.
+        if (collector.IsPlayer)
+        {
+            ScoreManager.AddPowerUpScore();
+        }
 
         Debug.Log($"[PowerUp] {pickup.Definition.displayName} recogido por {collector.name}.");
 
@@ -165,7 +207,7 @@ public class PowerUpSpawner : MonoBehaviour
 
         while (true)
         {
-            if (activePickups.Count < config.maxSimultaneous)
+            if (!spawningPaused && activePickups.Count < config.maxSimultaneous)
             {
                 TrySpawnPickup();
             }

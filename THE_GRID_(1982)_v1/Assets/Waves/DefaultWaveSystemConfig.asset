@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df8e85d3fff3f514888d5c14b121df14, type: 3}
+  m_Name: DefaultWaveSystemConfig
+  m_EditorClassIdentifier: Assembly-CSharp::WaveSystemConfig
+  startingWave: 1
+  maximumWaves: 0
+  timeBetweenWaves: 3
+  preparationTime: 2
+  initialMinSpawnInterval: 6
+  initialMaxSpawnInterval: 14
+  lateMinSpawnInterval: 14
+  lateMaxSpawnInterval: 28
+  lateGameWaveThreshold: 6
+  initialMaxSimultaneous: 3
+  lateMaxSimultaneous: 2
+  baseWaveCompletionScore: 100
+  enemyKillScore: 100
+  powerUpPickupScore: 25
+  movementScorePerCell: 5
+  movementScoreCellInterval: 10
+  streakWindowSeconds: 5
+  streakBonusMultiplier: 2
+  waveTimeoutSeconds: 120
+  waveCompleteDisplayTime: 2
+  waveCountdownFrom: 3
+  waveCountdownStepDuration: 0.8
