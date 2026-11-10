@@ -3,19 +3,27 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Selector de 3 iniciales estilo arcade. W/S cambian la letra activa,
-/// D avanza a la siguiente posición, A retrocede, Space confirma.
-/// Al confirmar, llama a WavesGameOverController.SubmitName() con las
-/// iniciales elegidas y se desactiva.
+/// Selector de 3 iniciales estilo arcade.
+///
+/// Recibe las acciones mediante IMenuInputProvider,
+/// permitiendo utilizar teclado, joystick Arduino
+/// y el pulsador físico de confirmación.
+///
+/// Arriba/Abajo: cambiar letra.
+/// Izquierda/Derecha: cambiar posición.
+/// Derecha en la última posición: confirmar.
+/// Confirm: confirmar el nombre.
 /// </summary>
 public class NameEntryUI : MonoBehaviour
 {
+    [Header("Panel")]
     [SerializeField] private GameObject nameEntryPanel;
 
-    [Tooltip("Los tres TMP_Text que muestran cada letra. Orden: izquierda → derecha.")]
+    [Header("Iniciales")]
+    [Tooltip("Los tres TMP_Text que muestran cada letra. Orden: izquierda a derecha.")]
     [SerializeField] private TMP_Text[] letterTexts = new TMP_Text[3];
 
-    [Tooltip("El TMP_Text que actúa como cursor/underline bajo la letra activa.")]
+    [Tooltip("Los TMP_Text que actúan como cursor debajo de cada letra.")]
     [SerializeField] private TMP_Text[] cursorTexts = new TMP_Text[3];
 
     [Header("Colores")]
@@ -24,117 +32,202 @@ public class NameEntryUI : MonoBehaviour
 
     private const string Letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    private int[] letterIndices = new int[3];
+    private readonly int[] letterIndices = new int[3];
+
     private int activeSlot = 0;
     private bool accepting = false;
 
+    private IMenuInputProvider inputProvider;
     private WavesGameOverController gameOverController;
 
     private void Awake()
     {
-        gameOverController = FindFirstObjectByType<WavesGameOverController>();
+        // Buscamos primero el proveedor combinado.
+        // Así garantizamos que se utilicen Arduino y teclado.
+        CombinedMenuInputProvider combinedProvider =
+            GetComponent<CombinedMenuInputProvider>();
+
+        if (combinedProvider != null)
+        {
+            inputProvider = combinedProvider;
+        }
+        else
+        {
+            // Alternativa por si en el futuro se utiliza
+            // otro proveedor que implemente la interfaz.
+            inputProvider = GetComponent<IMenuInputProvider>();
+        }
+
+        if (inputProvider == null)
+        {
+            Debug.LogError(
+                $"{name}: no se encontró ningún IMenuInputProvider."
+            );
+
+            enabled = false;
+            return;
+        }
+
+        gameOverController =
+            FindFirstObjectByType<WavesGameOverController>();
     }
 
     private void Start()
     {
         if (nameEntryPanel != null)
+        {
             nameEntryPanel.SetActive(false);
+        }
     }
 
     /// <summary>
-    /// WavesGameOverController lo llama cuando es momento de pedir el nombre.
+    /// WavesGameOverController lo llama cuando es momento
+    /// de solicitar las iniciales del jugador.
     /// </summary>
     public void Show()
     {
+        // Reiniciar las tres iniciales en A.
         letterIndices[0] = 0;
         letterIndices[1] = 0;
         letterIndices[2] = 0;
+
+        // Comenzar seleccionando la primera posición.
         activeSlot = 0;
+
         accepting = true;
 
         RefreshDisplay();
 
         if (nameEntryPanel != null)
+        {
             nameEntryPanel.SetActive(true);
+        }
+
+        Debug.Log("[NameEntryUI] Ingreso de iniciales iniciado.");
     }
 
     private void Update()
     {
-        if (!accepting) return;
+        if (!accepting || inputProvider == null)
+            return;
 
-        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
-        {
-            // W retrocede: A → Z → Y → ...
-            letterIndices[activeSlot] =
-                (letterIndices[activeSlot] - 1 + Letters.Length) % Letters.Length;
+        MenuAction action = inputProvider.GetAction();
 
-            RefreshDisplay();
-        }
-        else if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+        switch (action)
         {
-            // S avanza: A → B → C → ...
-            letterIndices[activeSlot] =
-                (letterIndices[activeSlot] + 1) % Letters.Length;
+            case MenuAction.MoveUp:
+                // Retroceder: A -> Z -> Y -> ...
+                ChangeLetter(-1);
+                break;
 
-            RefreshDisplay();
-        }
-        else if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            if (activeSlot < 2)
-            {
-                activeSlot++;
-                RefreshDisplay();
-            }
-            // En la última posición, D también confirma.
-            else
-            {
+            case MenuAction.MoveDown:
+                // Avanzar: A -> B -> C -> ...
+                ChangeLetter(1);
+                break;
+
+            case MenuAction.DecreaseValue:
+                // Seleccionar la posición anterior.
+                MoveSlot(-1);
+                break;
+
+            case MenuAction.IncreaseValue:
+                // Seleccionar la siguiente posición.
+                // En la última, confirmar el nombre.
+                if (activeSlot < 2)
+                {
+                    MoveSlot(1);
+                }
+                else
+                {
+                    Confirm();
+                }
+                break;
+
+            case MenuAction.Confirm:
                 Confirm();
-            }
-        }
-        else if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            if (activeSlot > 0)
-            {
-                activeSlot--;
-                RefreshDisplay();
-            }
-        }
-        else if (Input.GetKeyDown(KeyCode.Space))
-        {
-            Confirm();
+                break;
         }
     }
 
+    /// <summary>
+    /// Cambia la letra de la posición actualmente seleccionada.
+    /// </summary>
+    private void ChangeLetter(int direction)
+    {
+        letterIndices[activeSlot] =
+            (letterIndices[activeSlot] + direction + Letters.Length)
+            % Letters.Length;
+
+        RefreshDisplay();
+    }
+
+    /// <summary>
+    /// Cambia la posición seleccionada.
+    /// No permite salir del rango de las tres iniciales.
+    /// </summary>
+    private void MoveSlot(int direction)
+    {
+        int newSlot = activeSlot + direction;
+
+        if (newSlot < 0 || newSlot > 2)
+            return;
+
+        activeSlot = newSlot;
+
+        RefreshDisplay();
+    }
+
+    /// <summary>
+    /// Confirma las tres iniciales y las entrega
+    /// a WavesGameOverController para guardar el score.
+    /// </summary>
     private void Confirm()
     {
+        if (!accepting)
+            return;
+
         accepting = false;
 
-        string initials = ""
-            + Letters[letterIndices[0]]
-            + Letters[letterIndices[1]]
-            + Letters[letterIndices[2]];
+        string initials =
+            Letters[letterIndices[0]].ToString() +
+            Letters[letterIndices[1]].ToString() +
+            Letters[letterIndices[2]].ToString();
+
+        Debug.Log($"[NameEntryUI] Iniciales confirmadas: {initials}");
 
         if (nameEntryPanel != null)
+        {
             nameEntryPanel.SetActive(false);
+        }
 
-        // Entregar las iniciales al controller para que guarde el score.
         gameOverController?.SubmitName(initials);
     }
 
+    /// <summary>
+    /// Actualiza las letras, los colores y los cursores.
+    /// </summary>
     private void RefreshDisplay()
     {
         for (int i = 0; i < 3; i++)
         {
-            if (letterTexts[i] != null)
+            if (letterTexts != null &&
+                i < letterTexts.Length &&
+                letterTexts[i] != null)
             {
-                letterTexts[i].text = Letters[letterIndices[i]].ToString();
+                letterTexts[i].text =
+                    Letters[letterIndices[i]].ToString();
+
                 letterTexts[i].color =
-                    i == activeSlot ? activeLetterColor : inactiveLetterColor;
+                    i == activeSlot
+                        ? activeLetterColor
+                        : inactiveLetterColor;
             }
 
-            if (cursorTexts[i] != null)
+            if (cursorTexts != null &&
+                i < cursorTexts.Length &&
+                cursorTexts[i] != null)
             {
-                // El cursor/underline sólo se muestra bajo la letra activa.
+                // Mostrar únicamente el cursor de la letra activa.
                 cursorTexts[i].gameObject.SetActive(i == activeSlot);
             }
         }

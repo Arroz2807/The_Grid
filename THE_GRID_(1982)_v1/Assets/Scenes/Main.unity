@@ -3295,6 +3295,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1160837502}
   - component: {fileID: 1160837503}
+  - component: {fileID: 1160837505}
+  - component: {fileID: 1160837504}
   m_Layer: 0
   m_Name: NameEntryController
   m_TagString: Untagged
@@ -3340,6 +3342,34 @@ MonoBehaviour:
   - {fileID: 153632896}
   activeLetterColor: {r: 0, g: 1, b: 1, a: 1}
   inactiveLetterColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+--- !u!114 &1160837504
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160837501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da7895ae34485644380f538a25c0cbc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KeyboardMenuInput
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
+--- !u!114 &1160837505
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160837501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
 --- !u!1 &1198381198
 GameObject:
   m_ObjectHideFlags: 0
@@ -3351,6 +3381,7 @@ GameObject:
   - component: {fileID: 1198381199}
   - component: {fileID: 1198381201}
   - component: {fileID: 1198381200}
+  - component: {fileID: 1198381202}
   m_Layer: 5
   m_Name: WavesGameOverNavigator
   m_TagString: Untagged
@@ -3409,6 +3440,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da7895ae34485644380f538a25c0cbc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardMenuInput
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
+--- !u!114 &1198381202
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1198381198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
   initialRepeatDelay: 0.35
   repeatInterval: 0.12
 --- !u!1 &1208004374
@@ -4793,6 +4838,7 @@ GameObject:
   - component: {fileID: 1493136868}
   - component: {fileID: 1493136870}
   - component: {fileID: 1493136869}
+  - component: {fileID: 1493136871}
   m_Layer: 5
   m_Name: GameOverNavigator
   m_TagString: Untagged
@@ -4850,6 +4896,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da7895ae34485644380f538a25c0cbc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardMenuInput
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
+--- !u!114 &1493136871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1493136867}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
   initialRepeatDelay: 0.35
   repeatInterval: 0.12
 --- !u!1 &1494026351

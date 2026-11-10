@@ -10,50 +10,51 @@ using UnityEngine;
 /// Administra la comunicación serial con Arduino.
 ///
 /// Es el único componente responsable de abrir, leer y cerrar
-/// el puerto COM. Recibe comandos L, R, U y D y los deja
-/// disponibles para los sistemas de entrada de Unity.
+/// el puerto COM.
 ///
-/// La lectura se realiza en un hilo secundario para evitar
-/// bloquear el hilo principal del juego.
+/// Mantiene tres datos independientes:
+/// - Dirección actual del joystick.
+/// - Cola de cambios de dirección para el movimiento del ciclo.
+/// - Confirmaciones pendientes del pulsador.
+///
+/// La lectura serial se realiza en un hilo secundario.
 /// </summary>
 public class ArduinoSerialManager : MonoBehaviour
 {
     public static ArduinoSerialManager Instance { get; private set; }
 
     [Header("Configuración serial")]
-    [Tooltip("Puerto COM al que está conectado el Arduino. Ejemplo: COM3.")]
     [SerializeField] private string portName = "COM3";
-
-    [Tooltip("Debe coincidir con Serial.begin() del programa Arduino.")]
     [SerializeField] private int baudRate = 9600;
-
-    [Tooltip("Tiempo máximo de espera de una lectura serial, en milisegundos.")]
     [SerializeField] private int readTimeout = 100;
 
     [Header("Diagnóstico")]
     [SerializeField] private bool showConnectionLogs = true;
 
-    // Objeto encargado de comunicarse con el puerto serial.
     private SerialPort serialPort;
-
-    // Hilo que lee los mensajes sin bloquear el juego.
     private Thread readThread;
-
     private volatile bool isRunning;
 
-    // Cola compartida entre el hilo serial y el hilo principal de Unity.
-    private readonly Queue<char> receivedCommands = new Queue<char>();
-    private readonly object queueLock = new object();
+    // Cola de direcciones para el movimiento del ciclo.
+    private readonly Queue<char> receivedDirections = new Queue<char>();
+    private readonly object directionLock = new object();
 
-    // Los errores se guardan en el hilo serial y se informan desde Update.
+    // Estado actual del joystick para la navegación de menús.
+    private char heldDirection = 'N';
+
+    // Cantidad de confirmaciones pendientes.
+    private int pendingConfirmations = 0;
+
+    // Sincroniza los datos compartidos entre hilos.
+    private readonly object inputLock = new object();
+
     private string pendingError;
     private readonly object errorLock = new object();
 
-    private const int MaxQueuedCommands = 16;
+    private const int MaxQueuedDirections = 16;
 
     private void Awake()
     {
-        // Garantiza que exista una sola instancia del administrador.
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -61,8 +62,6 @@ public class ArduinoSerialManager : MonoBehaviour
         }
 
         Instance = this;
-
-        // Permite conservar la conexión al cambiar de escena.
         DontDestroyOnLoad(gameObject);
     }
 
@@ -83,9 +82,18 @@ public class ArduinoSerialManager : MonoBehaviour
             serialPort.NewLine = "\n";
 
             serialPort.Open();
-
-            // Descarta datos antiguos que pudieran haber quedado en el puerto.
             serialPort.DiscardInBuffer();
+
+            lock (inputLock)
+            {
+                heldDirection = 'N';
+                pendingConfirmations = 0;
+            }
+
+            lock (directionLock)
+            {
+                receivedDirections.Clear();
+            }
 
             isRunning = true;
 
@@ -117,11 +125,8 @@ public class ArduinoSerialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Lee las líneas que envía Arduino.
-    ///
-    /// Este método se ejecuta en un hilo secundario.
-    /// No se debe utilizar aquí la API de Unity, como Debug.Log
-    /// o funciones de objetos de la escena.
+    /// Lee los mensajes enviados por Arduino.
+    /// Se ejecuta en un hilo secundario.
     /// </summary>
     private void ReadSerialData()
     {
@@ -136,24 +141,22 @@ public class ArduinoSerialManager : MonoBehaviour
 
                 char command = char.ToUpperInvariant(message.Trim()[0]);
 
-                if (command != 'L' &&
-                    command != 'R' &&
-                    command != 'U' &&
-                    command != 'D')
+                switch (command)
                 {
-                    continue;
-                }
+                    case 'L':
+                    case 'R':
+                    case 'U':
+                    case 'D':
+                        RegisterDirection(command);
+                        break;
 
-                lock (queueLock)
-                {
-                    // Evita acumular una cantidad ilimitada de comandos.
-                    // Si Unity no los consumió a tiempo, descartamos el más viejo.
-                    while (receivedCommands.Count >= MaxQueuedCommands)
-                    {
-                        receivedCommands.Dequeue();
-                    }
+                    case 'N':
+                        RegisterNeutral();
+                        break;
 
-                    receivedCommands.Enqueue(command);
+                    case 'C':
+                        RegisterConfirmation();
+                        break;
                 }
             }
             catch (TimeoutException)
@@ -162,7 +165,6 @@ public class ArduinoSerialManager : MonoBehaviour
             }
             catch (InvalidOperationException)
             {
-                // El puerto se cerró mientras se estaba leyendo.
                 break;
             }
             catch (IOException exception)
@@ -173,9 +175,7 @@ public class ArduinoSerialManager : MonoBehaviour
             catch (Exception exception)
             {
                 if (isRunning)
-                {
                     StoreError($"Error serial: {exception.Message}");
-                }
 
                 break;
             }
@@ -183,21 +183,95 @@ public class ArduinoSerialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Devuelve el comando más reciente disponible.
+    /// Registra una nueva dirección del joystick.
+    /// </summary>
+    private void RegisterDirection(char direction)
+    {
+        lock (inputLock)
+        {
+            heldDirection = direction;
+        }
+
+        lock (directionLock)
+        {
+            while (receivedDirections.Count >= MaxQueuedDirections)
+            {
+                receivedDirections.Dequeue();
+            }
+
+            receivedDirections.Enqueue(direction);
+        }
+    }
+
+    /// <summary>
+    /// Registra que el joystick volvió al centro.
+    /// </summary>
+    private void RegisterNeutral()
+    {
+        lock (inputLock)
+        {
+            heldDirection = 'N';
+        }
+    }
+
+    /// <summary>
+    /// Registra una confirmación del pulsador.
+    /// </summary>
+    private void RegisterConfirmation()
+    {
+        lock (inputLock)
+        {
+            pendingConfirmations++;
+        }
+    }
+
+    /// <summary>
+    /// Devuelve la dirección que el joystick mantiene actualmente.
     ///
-    /// Si llegaron varios comandos antes de que Unity los procesara,
-    /// consume todos y devuelve el último para evitar giros atrasados.
+    /// No consume el estado: se puede consultar en cada frame.
+    /// N significa que el joystick está neutral.
+    /// </summary>
+    public char GetHeldDirection()
+    {
+        lock (inputLock)
+        {
+            return heldDirection;
+        }
+    }
+
+    /// <summary>
+    /// Entrega una confirmación pendiente.
+    ///
+    /// Cada pulsación se entrega una sola vez.
+    /// </summary>
+    public bool TryGetConfirmCommand()
+    {
+        lock (inputLock)
+        {
+            if (pendingConfirmations <= 0)
+                return false;
+
+            pendingConfirmations--;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Consume los cambios de dirección pendientes y devuelve
+    /// solamente el más reciente.
+    ///
+    /// Se utiliza para el movimiento del ciclo durante la partida.
     /// </summary>
     public bool TryGetLatestCommand(out char command)
     {
         command = '\0';
         bool hasCommand = false;
 
-        lock (queueLock)
+        lock (directionLock)
         {
-            while (receivedCommands.Count > 0)
+            while (receivedDirections.Count > 0)
             {
-                command = receivedCommands.Dequeue();
+                command = receivedDirections.Dequeue();
                 hasCommand = true;
             }
         }
@@ -249,14 +323,12 @@ public class ArduinoSerialManager : MonoBehaviour
             catch (Exception exception)
             {
                 Debug.LogWarning(
-                    $"[ArduinoSerialManager] Error al cerrar el puerto: " +
+                    "[ArduinoSerialManager] Error al cerrar el puerto: " +
                     exception.Message
                 );
             }
         }
 
-        // La lectura tiene un timeout, por lo que el hilo debería terminar
-        // sin permanecer bloqueado indefinidamente.
         if (readThread != null && readThread.IsAlive)
         {
             readThread.Join(250);
@@ -273,7 +345,6 @@ public class ArduinoSerialManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        // Una instancia duplicada no debe cerrar la conexión de la original.
         if (Instance != this)
             return;
 
@@ -284,8 +355,6 @@ public class ArduinoSerialManager : MonoBehaviour
     private void OnApplicationQuit()
     {
         if (Instance == this)
-        {
             CloseConnection();
-        }
     }
 }

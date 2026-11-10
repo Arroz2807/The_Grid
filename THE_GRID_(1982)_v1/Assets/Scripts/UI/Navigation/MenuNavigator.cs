@@ -1,3 +1,4 @@
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,12 +22,35 @@ public class MenuNavigator : MonoBehaviour
 
     private void Awake()
     {
-        inputProvider = GetComponent<IMenuInputProvider>();
+        // Primero buscamos el proveedor combinado.
+        // Si existe, administra tanto el joystick como el teclado.
+        CombinedMenuInputProvider combinedProvider =
+            GetComponent<CombinedMenuInputProvider>();
+
+        if (combinedProvider != null)
+        {
+            inputProvider = combinedProvider;
+        }
+        else
+        {
+            // En los demás paneles mantenemos el proveedor que ya utilizaban.
+            inputProvider = GetComponent<IMenuInputProvider>();
+        }
 
         if (inputProvider == null)
         {
-            Debug.LogError($"{name}: falta IMenuInputProvider (ej. KeyboardMenuInput). Desactivando.");
+            Debug.LogError(
+                $"{name}: falta IMenuInputProvider (ej. KeyboardMenuInput). Desactivando."
+            );
+
             enabled = false;
+        }
+        else
+        {
+            Debug.Log(
+                $"{name}: proveedor de entrada seleccionado: " +
+                $"{inputProvider.GetType().Name}"
+            );
         }
     }
 
@@ -35,6 +59,7 @@ public class MenuNavigator : MonoBehaviour
         if (options.Count == 0 && initialOptions != null && initialOptions.Count > 0)
         {
             List<INavigableOption> converted = new List<INavigableOption>();
+
             foreach (NavigableButton button in initialOptions)
             {
                 if (button == null)
@@ -42,8 +67,10 @@ public class MenuNavigator : MonoBehaviour
                     Debug.LogWarning($"{name}: hay un elemento vacío en Initial Options.");
                     continue;
                 }
+
                 converted.Add(button);
             }
+
             SetOptions(converted, initialSelectedIndex);
         }
 
@@ -85,13 +112,18 @@ public class MenuNavigator : MonoBehaviour
 
         switch (inputProvider.GetAction())
         {
-            case MenuAction.MoveUp: MoveSelection(-1); break;
-            case MenuAction.MoveDown: MoveSelection(1); break;
+            case MenuAction.MoveUp:
+                MoveSelection(-1);
+                break;
+
+            case MenuAction.MoveDown:
+                MoveSelection(1);
+                break;
+
             case MenuAction.DecreaseValue:
                 if (horizontalNavigation)
                 {
-                    // Menú horizontal: A mueve el cursor a la izquierda
-                    // (MoveSelection ya reproduce el sonido de navegación).
+                    // Menú horizontal: A mueve el cursor a la izquierda.
                     MoveSelection(-1);
                 }
                 else
@@ -100,6 +132,7 @@ public class MenuNavigator : MonoBehaviour
                     AudioManager.Instance?.PlaySfx(SfxId.MenuNavigate);
                 }
                 break;
+
             case MenuAction.IncreaseValue:
                 if (horizontalNavigation)
                 {
@@ -111,22 +144,24 @@ public class MenuNavigator : MonoBehaviour
                     AudioManager.Instance?.PlaySfx(SfxId.MenuNavigate);
                 }
                 break;
+
             case MenuAction.Confirm:
                 options[selectedIndex].OnConfirm();
                 AudioManager.Instance?.PlaySfx(SfxId.MenuConfirm);
                 break;
         }
 
-        // Se recalcula todos los frames (no sólo al cambiar de selección)
-        // para que ajustar Cursor Offset X en el Inspector, incluso en
-        // Play, se vea reflejado al instante.
+        // Se recalcula todos los frames para que los cambios
+        // de Cursor Offset X se reflejen incluso durante Play.
         PositionCursor();
     }
 
     private void MoveSelection(int delta)
     {
         int newIndex = (selectedIndex + delta + options.Count) % options.Count;
+
         SelectIndex(newIndex, notifyOld: true);
+
         AudioManager.Instance?.PlaySfx(SfxId.MenuNavigate);
     }
 
@@ -139,9 +174,6 @@ public class MenuNavigator : MonoBehaviour
 
         selectedIndex = index;
         options[selectedIndex].OnSelected();
-        // No hace falta llamar a PositionCursor() acá: Update() ya lo
-        // recalcula todos los frames, incluido el siguiente frame después
-        // de este cambio de selección.
 
         Debug.Log($"{name}: índice {selectedIndex} seleccionado.");
     }
@@ -151,15 +183,19 @@ public class MenuNavigator : MonoBehaviour
         if (cursor == null) return;
 
         RectTransform anchor = options[selectedIndex].CursorAnchor;
+
         if (anchor == null) return;
 
-        // GetWorldCorners da el borde real en espacio de mundo, sin
-        // importar el pivote del RectTransform ni depender de píxeles
-        // hardcodeados. corners[0]=inferior-izq, corners[1]=superior-izq.
+        // GetWorldCorners obtiene los límites reales del RectTransform.
+        // corners[0] = inferior izquierda.
+        // corners[1] = superior izquierda.
         Vector3[] corners = new Vector3[4];
+
         anchor.GetWorldCorners(corners);
+
         Vector3 leftEdgeMidHeight = (corners[0] + corners[1]) * 0.5f;
 
-        cursor.position = leftEdgeMidHeight + new Vector3(cursorOffsetX, 0f, 0f);
+        cursor.position = leftEdgeMidHeight +
+                          new Vector3(cursorOffsetX, 0f, 0f);
     }
 }

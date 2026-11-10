@@ -1622,6 +1622,7 @@ GameObject:
   - component: {fileID: 158502269}
   - component: {fileID: 158502268}
   - component: {fileID: 158502270}
+  - component: {fileID: 158502271}
   m_Layer: 5
   m_Name: SelectionNavigator
   m_TagString: Untagged
@@ -1698,6 +1699,20 @@ MonoBehaviour:
   powerUpsToggle: {fileID: 1583638909}
   backOption: {fileID: 173654807}
   startOption: {fileID: 969972568}
+--- !u!114 &158502271
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 158502266}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
 --- !u!1 &173654802
 GameObject:
   m_ObjectHideFlags: 0
@@ -1985,6 +2000,74 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 235960929}
   m_CullTransparentMesh: 1
+--- !u!1 &274932969
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 274932971}
+  - component: {fileID: 274932970}
+  m_Layer: 0
+  m_Name: VideoPlayer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!328 &274932970
+VideoPlayer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 274932969}
+  m_Enabled: 1
+  m_VideoClip: {fileID: 0}
+  m_TargetCameraAlpha: 1
+  m_TargetCamera3DLayout: 0
+  m_TargetCamera: {fileID: 0}
+  m_TargetTexture: {fileID: 0}
+  m_TimeReference: 0
+  m_TargetMaterialRenderer: {fileID: 0}
+  m_TargetMaterialProperty: <noninit>
+  m_RenderMode: 2
+  m_AspectRatio: 2
+  m_DataSource: 0
+  m_TimeUpdateMode: 2
+  m_PlaybackSpeed: 1
+  m_AudioOutputMode: 2
+  m_TargetAudioSources:
+  - {fileID: 0}
+  m_DirectAudioVolumes:
+  - 1
+  m_Url: 
+  m_EnabledAudioTracks: 01
+  m_DirectAudioMutes: 00
+  m_ControlledAudioTrackCount: 1
+  m_PlayOnAwake: 1
+  m_SkipOnDrop: 1
+  m_Looping: 0
+  m_WaitForFirstFrame: 1
+  m_FrameReadyEventEnabled: 0
+  m_VideoShaders: []
+--- !u!4 &274932971
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 274932969}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 849.4191, y: 503.37888, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &274939028
 GameObject:
   m_ObjectHideFlags: 0
@@ -2557,6 +2640,7 @@ GameObject:
   - component: {fileID: 316273730}
   - component: {fileID: 316273732}
   - component: {fileID: 316273731}
+  - component: {fileID: 316273733}
   m_Layer: 5
   m_Name: MainMenuNavigator
   m_TagString: Untagged
@@ -2617,6 +2701,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da7895ae34485644380f538a25c0cbc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardMenuInput
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
+--- !u!114 &316273733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 316273729}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
   initialRepeatDelay: 0.35
   repeatInterval: 0.12
 --- !u!1 &319712833
@@ -5683,6 +5781,7 @@ GameObject:
   - component: {fileID: 896184873}
   - component: {fileID: 896184875}
   - component: {fileID: 896184874}
+  - component: {fileID: 896184876}
   m_Layer: 5
   m_Name: SettingsNavigator
   m_TagString: Untagged
@@ -5738,6 +5837,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da7895ae34485644380f538a25c0cbc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardMenuInput
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
+--- !u!114 &896184876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 896184872}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
   initialRepeatDelay: 0.35
   repeatInterval: 0.12
 --- !u!1 &967262825
@@ -7495,6 +7608,7 @@ GameObject:
   - component: {fileID: 1086156285}
   - component: {fileID: 1086156287}
   - component: {fileID: 1086156286}
+  - component: {fileID: 1086156288}
   m_Layer: 5
   m_Name: CreditsNavigator
   m_TagString: Untagged
@@ -7551,6 +7665,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: da7895ae34485644380f538a25c0cbc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardMenuInput
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
+--- !u!114 &1086156288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086156284}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
   initialRepeatDelay: 0.35
   repeatInterval: 0.12
 --- !u!1 &1089699564
@@ -9495,10 +9623,10 @@ RectTransform:
   - {fileID: 2067092984}
   m_Father: {fileID: 493523938}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.2083125, y: 0.351}
+  m_AnchorMin: {x: 0.21300001, y: 0.351}
   m_AnchorMax: {x: 0.6474792, y: 0.446}
-  m_AnchoredPosition: {x: -0.09008789, y: -0.3999939}
-  m_SizeDelta: {x: -3.1799927, y: -2.9129028}
+  m_AnchoredPosition: {x: 0.087524414, y: -0.3999939}
+  m_SizeDelta: {x: -3.5349998, y: -2.9129}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1456848126
 MonoBehaviour:
@@ -11115,6 +11243,7 @@ GameObject:
   - component: {fileID: 1756073683}
   - component: {fileID: 1756073682}
   - component: {fileID: 1756073684}
+  - component: {fileID: 1756073685}
   m_Layer: 5
   m_Name: GameModeNavigator
   m_TagString: Untagged
@@ -11189,6 +11318,20 @@ MonoBehaviour:
   wavesButton: {fileID: 1341862549}
   pvpButton: {fileID: 1427951946}
   backButton: {fileID: 1532019884}
+--- !u!114 &1756073685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1756073680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f531921a7e06c004fa8b3822c310a06e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombinedMenuInputProvider
+  initialRepeatDelay: 0.35
+  repeatInterval: 0.12
 --- !u!1 &1785623169
 GameObject:
   m_ObjectHideFlags: 0
@@ -13267,7 +13410,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: WAVES RANKING
+  m_text: RANKING
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c3256c75a72fe254999496053bc1d8dd, type: 2}
   m_sharedMaterial: {fileID: 1024184066686120238, guid: c3256c75a72fe254999496053bc1d8dd, type: 2}
@@ -13301,8 +13444,8 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 2
-  m_VerticalAlignment: 512
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 4096
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -13991,3 +14134,4 @@ SceneRoots:
   - {fileID: 7757868105700257492}
   - {fileID: 820846811}
   - {fileID: 1794383279}
+  - {fileID: 274932971}

@@ -2,7 +2,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Traduce los comandos recibidos por ArduinoSerialManager
+/// Traduce los cambios de dirección recibidos por ArduinoSerialManager
 /// a direcciones cardinales para el movimiento del ciclo.
 /// </summary>
 public class ArduinoDirectionInputProvider : MonoBehaviour, IDirectionInputProvider
@@ -10,9 +10,6 @@ public class ArduinoDirectionInputProvider : MonoBehaviour, IDirectionInputProvi
     [SerializeField]
     private bool playTurnSound = true;
 
-    /// <summary>
-    /// Permite que un proveedor combinado controle el sonido.
-    /// </summary>
     public void SetTurnSoundEnabled(bool enabled)
     {
         playTurnSound = enabled;
@@ -23,12 +20,7 @@ public class ArduinoDirectionInputProvider : MonoBehaviour, IDirectionInputProvi
         ArduinoSerialManager serialManager = ArduinoSerialManager.Instance;
 
         if (serialManager == null)
-        {
-            Debug.LogWarning(
-                "[ArduinoInput] No existe ArduinoSerialManager."
-            );
             return null;
-        }
 
         if (!serialManager.TryGetLatestCommand(out char command))
             return null;
@@ -38,20 +30,12 @@ public class ArduinoDirectionInputProvider : MonoBehaviour, IDirectionInputProvi
         if (direction.HasValue)
         {
             Debug.Log(
-                $"[ArduinoInput] Comando recibido: '{command}' " +
-                $"-> dirección solicitada: {direction.Value}"
+                $"[ArduinoInput] Dirección recibida: {command} " +
+                $"-> {direction.Value}"
             );
 
             if (playTurnSound)
-            {
                 AudioManager.Instance?.PlaySfx(SfxId.Turn);
-            }
-        }
-        else
-        {
-            Debug.LogWarning(
-                $"[ArduinoInput] Comando desconocido: '{command}'."
-            );
         }
 
         return direction;

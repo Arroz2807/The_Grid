@@ -11,9 +11,9 @@ GameObject:
   - component: {fileID: 4006482884392615456}
   - component: {fileID: 6528625299756545004}
   - component: {fileID: 8431291819976545682}
-  - component: {fileID: 5268405604074703860}
   - component: {fileID: 4972034598803430390}
   - component: {fileID: 1825588631246703081}
+  - component: {fileID: 5773825747289589211}
   m_Layer: 0
   m_Name: LightCycle_Player
   m_TagString: Player
@@ -114,19 +114,6 @@ MonoBehaviour:
   startDirection: {x: 0, y: 1}
   trailDarkenFactor: 0.7
   maxTrailLength: 50
---- !u!114 &5268405604074703860
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9154952963662904437}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6d78894799207884f8f23331e8bec727, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ArduinoDirectionInputProvider
-  playTurnSound: 1
 --- !u!114 &4972034598803430390
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -152,3 +139,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb0e6785314028a42bb5e4ed34e7cb33, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombinedDirectionInputProvider
+--- !u!114 &5773825747289589211
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9154952963662904437}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 864c45f1f8d48624784a4522504f766c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ArduinoDirectionInputProvider
+  playTurnSound: 1
