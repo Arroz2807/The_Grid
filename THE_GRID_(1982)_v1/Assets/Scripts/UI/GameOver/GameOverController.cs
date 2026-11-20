@@ -1,13 +1,8 @@
+
 using System.Collections;
 using TMPro;
 using UnityEngine;
 
-/// <summary>
-/// Muestra el panel de fin de partida cuando GameManager avisa que la
-/// partida terminó, con el texto, color, sonido y música correspondientes
-/// al resultado — todo disparado en el mismo instante en que el panel se
-/// hace visible, nunca antes.
-/// </summary>
 public class GameOverController : MonoBehaviour
 {
     [SerializeField] private GameObject gameOverPanel;
@@ -16,11 +11,8 @@ public class GameOverController : MonoBehaviour
 
     [Header("Color según resultado")]
     [SerializeField] private Color victoryColor = Color.white;
-    [SerializeField] private Color defeatColor = new Color(225f / 255f, 97f / 255f, 15f / 255f);
-
-    [Header("Audio")]
-    [SerializeField] private AudioClip victoryMusic;
-    [SerializeField] private AudioClip defeatMusic;
+    [SerializeField] private Color defeatColor =
+        new Color(225f / 255f, 97f / 255f, 15f / 255f);
 
     private bool matchEndTriggered;
 
@@ -36,9 +28,12 @@ public class GameOverController : MonoBehaviour
 
     private void HandleMatchEnded(bool playerWon)
     {
-        if (MatchConfig.GameMode == GameMode.Waves) return;
+        if (MatchConfig.GameMode == GameMode.Waves)
+            return;
 
-        if (matchEndTriggered) return;
+        if (matchEndTriggered)
+            return;
+
         matchEndTriggered = true;
 
         if (titleText != null)
@@ -55,21 +50,20 @@ public class GameOverController : MonoBehaviour
         yield return new WaitForSecondsRealtime(panelRevealDelay);
 
         if (gameOverPanel != null)
-        {
             gameOverPanel.SetActive(true);
-        }
 
-        // Sonido y música de resultado se disparan acá, junto con el
-        // panel — no antes, cuando GameManager.OnMatchEnded avisó que la
-        // partida terminó — para que coincidan con lo que el jugador
-        // realmente ve en pantalla. loop: false porque es un resultado
-        // puntual, no una pista de fondo continua.
-        AudioManager.Instance?.PlaySfx(playerWon ? SfxId.Victory : SfxId.Defeat);
-        AudioManager.Instance?.PlayMusic(playerWon ? victoryMusic : defeatMusic, loop: false);
+        AudioManager.Instance?.PlaySfxThenPlayMenuPlaylist(
+            playerWon ? SfxId.Victory : SfxId.Defeat
+        );
     }
 
     public void OnRetryButtonClicked()
     {
+        // Cancelar inmediatamente el efecto de resultado
+        // y cualquier transición de audio anterior.
+        AudioManager.Instance?.CancelResultAudioForGameplayRestart();
+
+        // La nueva escena iniciará la playlist de gameplay.
         SceneLoader.Load(SceneNames.Game);
     }
 

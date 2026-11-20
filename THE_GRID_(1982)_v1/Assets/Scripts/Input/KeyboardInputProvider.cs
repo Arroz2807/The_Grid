@@ -4,7 +4,11 @@ using UnityEngine;
 /// <summary>
 /// Traduce WASD y las flechas en direcciones absolutas.
 /// Almacena una dirección pendiente hasta que otro componente la consume.
+///
+/// Se ejecuta antes que LightCycleController para que el giro se consuma
+/// en el mismo frame en que se presiona la tecla, sin un frame de latencia.
 /// </summary>
+[DefaultExecutionOrder(-100)]
 public class KeyboardInputProvider : MonoBehaviour, IDirectionInputProvider
 {
     private Vector2Int? pendingDirection;

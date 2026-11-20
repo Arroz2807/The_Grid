@@ -15,12 +15,12 @@ MonoBehaviour:
   type: 2
   displayName: Extension
   pickupPrefab: {fileID: 0}
-  color: {r: 1, g: 0, b: 0.83267355, a: 1}
-  spawnWeight: 0.8
+  pickupSprite: {fileID: 8591809650298202995, guid: 88238c96cde9df24d9a326f147e32d73, type: 3}
+  color: {r: 1, g: 1, b: 1, a: 1}
+  spawnWeight: 0.6
   enabled: 1
-  duration: 50
+  duration: 0
   magnitude: 5
   trailLengthCap: 75
   playerCanPickUp: 1
   enemyCanPickUp: 1
-  pickupSfxId: 0

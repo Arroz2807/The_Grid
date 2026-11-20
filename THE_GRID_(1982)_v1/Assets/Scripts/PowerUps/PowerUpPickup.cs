@@ -1,3 +1,4 @@
+
 using System;
 using UnityEngine;
 
@@ -20,13 +21,40 @@ public class PowerUpPickup : MonoBehaviour
 
     public void Initialize(PowerUpDefinition definition, Vector2Int cell)
     {
+        if (definition == null)
+        {
+            Debug.LogError("[PowerUpPickup] Se intentó inicializar un pickup sin definición.", this);
+            return;
+        }
+
         Definition = definition;
         Cell = cell;
 
-        // Color visual del objeto en la grilla.
+        // Configuración visual.
         if (TryGetComponent(out SpriteRenderer sr))
         {
-            sr.color = definition.color;
+            if (definition.pickupSprite != null)
+            {
+                sr.sprite = definition.pickupSprite;
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[PowerUpPickup] {definition.displayName} no tiene un sprite asignado.",
+                    this
+                );
+            }
+
+            // Blanco conserva los colores originales del sprite.
+            // El color de la definición sigue disponible para las partículas.
+            sr.color = Color.white;
+        }
+        else
+        {
+            Debug.LogError(
+                "[PowerUpPickup] El prefab no tiene un SpriteRenderer.",
+                this
+            );
         }
     }
 

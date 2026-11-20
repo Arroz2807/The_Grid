@@ -1,9 +1,10 @@
+
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Arma la lista de opciones navegables del panel de configuración y se
-/// la entrega a MenuNavigator.
+/// Arma la lista de opciones navegables del panel de configuración
+/// y se la entrega a MenuNavigator.
 /// </summary>
 public class SettingsMenu : MonoBehaviour
 {
@@ -27,11 +28,14 @@ public class SettingsMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Cableado en el OnClick() del botón Reset Rankings en el Inspector.
+    /// Cableado en el OnClick() del botón Reset Rankings.
     /// </summary>
     public void OnResetRankingsButtonClicked()
     {
         RankingManager.ClearRanking();
-        Debug.Log("[SettingsMenu] Rankings reseteados.");
+
+        Debug.Log(
+            "[SettingsMenu] Ranking y Best Score de Waves reiniciados."
+        );
     }
 }

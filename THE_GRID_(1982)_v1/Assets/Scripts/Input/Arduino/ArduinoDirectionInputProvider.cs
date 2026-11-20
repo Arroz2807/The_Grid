@@ -4,7 +4,11 @@ using UnityEngine;
 /// <summary>
 /// Traduce los cambios de dirección recibidos por ArduinoSerialManager
 /// a direcciones cardinales para el movimiento del ciclo.
+///
+/// Se ejecuta antes que LightCycleController para que el giro se consuma
+/// en el mismo frame en que llega, sin un frame de latencia.
 /// </summary>
+[DefaultExecutionOrder(-100)]
 public class ArduinoDirectionInputProvider : MonoBehaviour, IDirectionInputProvider
 {
     [SerializeField]
@@ -29,11 +33,6 @@ public class ArduinoDirectionInputProvider : MonoBehaviour, IDirectionInputProvi
 
         if (direction.HasValue)
         {
-            Debug.Log(
-                $"[ArduinoInput] Dirección recibida: {command} " +
-                $"-> {direction.Value}"
-            );
-
             if (playTurnSound)
                 AudioManager.Instance?.PlaySfx(SfxId.Turn);
         }

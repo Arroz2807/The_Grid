@@ -15,12 +15,12 @@ MonoBehaviour:
   type: 0
   displayName: Turbo
   pickupPrefab: {fileID: 0}
+  pickupSprite: {fileID: 3415459749757061394, guid: 1187ab0385175e548bfb4e3f5993aea2, type: 3}
   color: {r: 0.6650944, g: 0.99370027, b: 1, a: 1}
-  spawnWeight: 1
+  spawnWeight: 0.9
   enabled: 1
   duration: 2.5
   magnitude: 1.25
   trailLengthCap: 50
   playerCanPickUp: 1
   enemyCanPickUp: 1
-  pickupSfxId: 0

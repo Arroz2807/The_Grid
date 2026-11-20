@@ -15,12 +15,12 @@ MonoBehaviour:
   type: 1
   displayName: Shield
   pickupPrefab: {fileID: 0}
+  pickupSprite: {fileID: -6717884257390833292, guid: 0c389c7e52a76fc4581e41260f2eb2f6, type: 3}
   color: {r: 1, g: 0.9039522, b: 0, a: 1}
-  spawnWeight: 0.7
+  spawnWeight: 0.4
   enabled: 1
   duration: 0
   magnitude: 1
   trailLengthCap: 50
   playerCanPickUp: 1
   enemyCanPickUp: 1
-  pickupSfxId: 0

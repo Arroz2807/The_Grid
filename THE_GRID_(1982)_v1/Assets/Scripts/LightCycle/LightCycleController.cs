@@ -1,17 +1,18 @@
+
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Mueve al ciclo de luz celda por celda, a ritmo constante, aplicando la
-/// dirección absoluta pedida por el proveedor de input. Antes de cada
-/// paso, consulta a GridManager si el camino está libre; si no lo está,
-/// muere. El rastro que deja tiene una longitud máxima configurable: al
-/// superarla, el segmento más viejo desaparece, tanto visualmente como en
-/// la ocupación lógica de la grilla.
+/// Mueve al ciclo de luz celda por celda, a ritmo constante,
+/// aplicando la dirección absoluta pedida por el proveedor de input.
 ///
-/// Esta clase la usan tanto el jugador como cada enemigo — cada instancia
-/// (cada prefab) puede tener su propia longitud máxima de rastro.
+/// Antes de cada paso, consulta a GridManager si el camino está libre.
+/// El rastro tiene una longitud máxima configurable.
+///
+/// Cada segmento conecta el centro de la celda abandonada
+/// con el centro de la nueva celda.
 /// </summary>
 public class LightCycleController : MonoBehaviour
 {
@@ -19,20 +20,32 @@ public class LightCycleController : MonoBehaviour
     [SerializeField] private GridManager gridManager;
     [SerializeField] private TrailManager trailManager;
 
+    [Header("Visual")]
+    [SerializeField] private Transform visualTransform;
+
     [Header("Movimiento")]
     [Tooltip("Segundos entre cada paso de la grilla. Menor = más rápido.")]
     [SerializeField] private float moveInterval = 0.15f;
+
+    [Tooltip("Interpola la posición visual entre celdas. La lógica, las colisiones y el rastro siguen siendo por celda.")]
+    [SerializeField] private bool smoothVisualMovement = true;
+
+    [Header("Entrada")]
+    [Tooltip("Cantidad de giros que se pueden guardar mientras el ciclo sigue en la celda actual. " +
+             "Un valor de 2 permite encadenar dos giros rápidos sin perder el primero.")]
+    [Range(1, 3)]
+    [SerializeField] private int maxBufferedTurns = 2;
 
     [Header("Estado inicial")]
     [SerializeField] private Vector2Int startCell = new Vector2Int(8, 2);
     [SerializeField] private Vector2Int startDirection = Vector2Int.up;
 
     [Header("Rastro")]
-    [Tooltip("Qué tan oscuro es el rastro (y la explosión al morir) respecto al color propio. 1 = igual de brillante, 0 = negro.")]
+    [Tooltip("Qué tan oscuro es el rastro respecto al color propio. 1 = igual de brillante, 0 = negro.")]
     [Range(0f, 1f)]
     [SerializeField] private float trailDarkenFactor = 0.7f;
 
-    [Tooltip("Cantidad máxima de segmentos de rastro que esta entidad puede tener a la vez. Al superarla, el más viejo desaparece.")]
+    [Tooltip("Cantidad máxima de segmentos de rastro que esta entidad puede tener a la vez.")]
     [Min(1)]
     [SerializeField] private int maxTrailLength = 15;
 
@@ -40,10 +53,9 @@ public class LightCycleController : MonoBehaviour
 
     public event Action OnCellEntered;
 
-    // Guarda, en orden, cada segmento de rastro propio junto con la celda
-    // que ocupa — un Queue es exactamente la estructura correcta para
-    // "el próximo en desaparecer es siempre el más viejo" (FIFO).
-    private readonly Queue<TrailEntry> trailSegments = new Queue<TrailEntry>();
+    // Cola FIFO: el segmento más antiguo es el primero en desaparecer.
+    private readonly Queue<TrailEntry> trailSegments =
+        new Queue<TrailEntry>();
 
     private readonly struct TrailEntry
     {
@@ -63,9 +75,26 @@ public class LightCycleController : MonoBehaviour
     private Color normalColor;
     private Color trailColor;
 
+    // Controla el flash temporal del ciclo y de su rastro.
+    private Coroutine visualColorFlashRoutine;
+    private bool isVisualColorFlashing;
+    private Color activeFlashColor;
+
     private Vector2Int currentCell;
     private Vector2Int direction;
     private Vector2Int queuedDirection;
+
+    // Buffer corto de giros: se llena cada frame y se consume de a uno por
+    // paso, para no perder el segundo giro cuando el jugador encadena dos
+    // pulsaciones dentro de la misma celda.
+    private readonly Queue<Vector2Int> bufferedTurns =
+        new Queue<Vector2Int>(3);
+
+    // Posiciones entre las que se interpola el sprite. La celda lógica
+    // cambia de golpe en Step(); estas dos posiciones permiten que el
+    // desplazamiento se vea continuo sin tocar la simulación.
+    private Vector3 visualFromPosition;
+    private Vector3 visualToPosition;
 
     private float moveTimer;
     private bool isAlive = true;
@@ -76,19 +105,21 @@ public class LightCycleController : MonoBehaviour
     public Color TrailColor => trailColor;
 
     /// <summary>
-    /// True si esta instancia es la entidad controlada por el jugador
-    /// humano. GameManager es quien lo decide y lo asigna en Initialize().
+    /// Renderer del sprite visual del LightCycle.
+    /// Permite que otros sistemas utilicen el renderer correcto
+    /// sin tener que buscarlo directamente en el objeto raíz.
+    /// </summary>
+    public SpriteRenderer VisualRenderer => spriteRenderer;
+
+    /// <summary>
+    /// True si esta instancia es la entidad controlada por el jugador.
     /// </summary>
     public bool IsPlayer => isPlayer;
 
-    // Expuesto para que MatchStarter pueda leer el intervalo configurado
-    // en el prefab y usarlo como "destino" del ramp-up, y también para
-    // pisarlo durante la aceleración inicial.
+    // Expuesto para MatchStarter y el sistema de ramp-up.
     public float MoveInterval => moveInterval;
 
-    // TurboEffect necesita leer el color actual para poder restaurarlo
-    // al terminar. Sólo lectura — SetColor() sigue siendo el único punto
-    // donde el color cambia.
+    // Color original para los efectos visuales.
     public Color NormalColor => normalColor;
 
     public void SetMoveInterval(float interval)
@@ -96,42 +127,54 @@ public class LightCycleController : MonoBehaviour
         moveInterval = Mathf.Max(0.01f, interval);
     }
 
-    // El escudo es un estado que ShieldEffect activa y desactiva.
-    // LightCycleController no sabe qué es un ShieldEffect — sólo sabe
-    // si tiene escudo activo o no, y expone ese estado para que Step()
-    // pueda consultarlo sin acoplarse al sistema de power-ups.
+    // ---------------------------------------------------------
+    // ESCUDO
+    // ---------------------------------------------------------
+
     private bool hasShield;
 
     public bool HasActiveShield => hasShield;
 
-    public void ActivateShield() { hasShield = true; }
-    public void DeactivateShield() { hasShield = false; }
+    public static event Action<LightCycleController> OnShieldConsumed;
+
+    public void ActivateShield()
+    {
+        hasShield = true;
+    }
+
+    public void DeactivateShield()
+    {
+        hasShield = false;
+    }
+
+    // ---------------------------------------------------------
+    // LONGITUD DEL RASTRO
+    // ---------------------------------------------------------
 
     public int MaxTrailLength => maxTrailLength;
 
     /// <summary>
-    /// Aumenta el límite máximo de segmentos de rastro de esta entidad.
-    /// Sólo afecta a esta instancia — cada LightCycleController tiene su
-    /// propia cola de rastro y su propio maxTrailLength. Si el nuevo valor
-    /// supera el tope global indicado, se recorta. Devuelve false si ya
-    /// está en el tope y el cambio no tuvo efecto.
+    /// Aumenta el límite máximo de segmentos de rastro.
     /// </summary>
     public bool TryIncreaseMaxTrailLength(int amount, int cap)
     {
-        if (maxTrailLength >= cap) return false;
+        if (maxTrailLength >= cap)
+            return false;
 
         maxTrailLength = Mathf.Min(maxTrailLength + amount, cap);
         return true;
     }
 
+    // ---------------------------------------------------------
+    // INICIALIZACIÓN
+    // ---------------------------------------------------------
 
     private void Awake()
     {
-
         inputProvider = GetComponent<CombinedDirectionInputProvider>();
 
-        // Si no existe el proveedor combinado, mantenemos el sistema anterior.
-        // Esto permite que los enemigos sigan usando EnemyBrain.
+        // Si no existe el proveedor combinado, se mantiene
+        // el sistema anterior para los enemigos.
         if (inputProvider == null)
         {
             inputProvider = GetComponent<IDirectionInputProvider>();
@@ -148,29 +191,104 @@ public class LightCycleController : MonoBehaviour
             return;
         }
 
+        // Primero intentamos buscar el SpriteRenderer dentro
+        // del objeto visual asignado en el Inspector.
+        if (visualTransform != null)
+        {
+            spriteRenderer = visualTransform.GetComponent<SpriteRenderer>();
 
-        spriteRenderer = GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null)
+            {
+                spriteRenderer =
+                    visualTransform.GetComponentInChildren<SpriteRenderer>();
+            }
+        }
+
+        // Si no se asignó Visual, buscamos en los hijos del objeto raíz.
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        }
+
+        // Si encontramos un renderer, usamos su Transform como
+        // referencia visual cuando todavía no se asignó uno.
+        if (visualTransform == null && spriteRenderer != null)
+        {
+            visualTransform = spriteRenderer.transform;
+        }
 
         if (spriteRenderer != null)
         {
             normalColor = spriteRenderer.color;
             trailColor = DarkenColor(normalColor, trailDarkenFactor);
         }
+        else
+        {
+            Debug.LogWarning(
+                $"{name}: no se encontró ningún SpriteRenderer " +
+                "en el objeto ni en sus hijos."
+            );
+        }
     }
 
     private void OnEnable()
     {
         GameManager.OnMatchEnded += HandleMatchEnded;
+        TrailManager.OnAllTrailsCleared += HandleAllTrailsCleared;
     }
 
     private void OnDisable()
     {
         GameManager.OnMatchEnded -= HandleMatchEnded;
+        TrailManager.OnAllTrailsCleared -= HandleAllTrailsCleared;
+
+        // Si el objeto se desactiva durante un flash,
+        // restauramos los colores para evitar estados visuales colgados.
+        if (visualColorFlashRoutine != null)
+        {
+            StopCoroutine(visualColorFlashRoutine);
+            visualColorFlashRoutine = null;
+        }
+
+        isVisualColorFlashing = false;
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = normalColor;
+        }
+
+        SetTrailSegmentsColor(trailColor);
     }
 
     private void HandleMatchEnded(bool playerWon)
     {
         isAlive = false;
+
+        // Al congelarse la partida, dejamos el sprite exactamente en la
+        // celda lógica para que no quede a mitad de camino.
+        if (smoothVisualMovement)
+        {
+            transform.position = visualToPosition;
+        }
+    }
+
+    /// <summary>
+    /// TrailManager limpia el tablero entre oleadas y recicla sus segmentos.
+    /// La cola local queda apuntando a segmentos que ahora pertenecen al
+    /// pool, así que hay que vaciarla para no devolver al pool un segmento
+    /// que otra entidad ya está usando.
+    /// </summary>
+    private void HandleAllTrailsCleared()
+    {
+        trailSegments.Clear();
+
+        // ClearAllTrails() resetea toda la ocupación de la grilla, incluida
+        // la celda de esta entidad. La volvemos a marcar para que nadie
+        // pueda entrar en ella durante la siguiente oleada.
+        if (isAlive && gridManager != null)
+        {
+            gridManager.SetCellOccupied(currentCell);
+        }
     }
 
     private static Color DarkenColor(Color color, float factor)
@@ -184,9 +302,8 @@ public class LightCycleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Asigna el color propio de esta entidad y recalcula el color
-    /// derivado del rastro/explosión. GameManager lo llama al crear cada
-    /// enemigo.
+    /// Asigna el color propio de esta entidad y recalcula
+    /// el color derivado del rastro.
     /// </summary>
     public void SetColor(Color color)
     {
@@ -195,15 +312,142 @@ public class LightCycleController : MonoBehaviour
 
         if (spriteRenderer != null)
         {
+            // Si hay un flash activo, dejamos que termine.
+            // Al finalizar restaurará el nuevo color normal.
+            if (!isVisualColorFlashing)
+            {
+                spriteRenderer.color = normalColor;
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // FEEDBACK VISUAL TEMPORAL
+    // ---------------------------------------------------------
+
+    /// <summary>
+    /// Cambia temporalmente el color del LightCycle y de todos
+    /// sus segmentos de rastro.
+    ///
+    /// Los segmentos nuevos también reciben el color del flash
+    /// mientras el efecto permanezca activo.
+    /// </summary>
+    public void FlashVisualColor(Color flashColor, float duration)
+    {
+        if (spriteRenderer == null)
+            return;
+
+        // Evita que dos flashes se ejecuten simultáneamente.
+        if (visualColorFlashRoutine != null)
+        {
+            StopCoroutine(visualColorFlashRoutine);
+            visualColorFlashRoutine = null;
+        }
+
+        activeFlashColor = flashColor;
+        isVisualColorFlashing = true;
+
+        visualColorFlashRoutine = StartCoroutine(
+            VisualColorFlashRoutine(flashColor, duration)
+        );
+    }
+
+    private IEnumerator VisualColorFlashRoutine(
+        Color flashColor,
+        float duration)
+    {
+        // Aplicar el flash al ciclo.
+        spriteRenderer.color = flashColor;
+
+        // Aplicar el flash a todos los segmentos existentes.
+        SetTrailSegmentsColor(flashColor);
+
+        yield return new WaitForSeconds(Mathf.Max(0.01f, duration));
+
+        // Restaurar el color original del ciclo.
+        if (spriteRenderer != null)
+        {
             spriteRenderer.color = normalColor;
+        }
+
+        // Restaurar el color habitual del rastro.
+        SetTrailSegmentsColor(trailColor);
+
+        isVisualColorFlashing = false;
+        visualColorFlashRoutine = null;
+    }
+
+    /// <summary>
+    /// Cambia el color de todos los segmentos que todavía
+    /// pertenecen a la cola FIFO.
+    /// </summary>
+    private void SetTrailSegmentsColor(Color color)
+    {
+        foreach (TrailEntry entry in trailSegments)
+        {
+            if (entry.Segment == null)
+                continue;
+
+            SpriteRenderer segmentRenderer =
+                entry.Segment.GetComponent<SpriteRenderer>();
+
+            if (segmentRenderer != null)
+            {
+                segmentRenderer.color = color;
+            }
         }
     }
 
     /// <summary>
-    /// Sobreescribe la celda y dirección iniciales configuradas en el
-    /// prefab. La usa GameManager para repartir a los enemigos en
-    /// distintas posiciones de la grilla. Debe llamarse antes de que
-    /// corra Start().
+    /// Aplica el color correcto a un segmento recién creado.
+    /// Si hay un flash activo, utiliza ese color temporal.
+    /// </summary>
+    private void ApplyCurrentTrailVisualColor(GameObject segment)
+    {
+        if (segment == null)
+            return;
+
+        SpriteRenderer segmentRenderer =
+            segment.GetComponent<SpriteRenderer>();
+
+        if (segmentRenderer == null)
+            return;
+
+        segmentRenderer.color = isVisualColorFlashing
+            ? activeFlashColor
+            : trailColor;
+    }
+
+    // ---------------------------------------------------------
+    // ORIENTACIÓN VISUAL DEL CICLO
+    // ---------------------------------------------------------
+
+    /// <summary>
+    /// Rota únicamente el objeto visual según la dirección actual.
+    /// </summary>
+    private void UpdateVisualRotation()
+    {
+        if (visualTransform == null)
+            return;
+
+        float angle = 0f;
+
+        if (direction == Vector2Int.up)
+            angle = 0f;
+        else if (direction == Vector2Int.right)
+            angle = -90f;
+        else if (direction == Vector2Int.down)
+            angle = 180f;
+        else if (direction == Vector2Int.left)
+            angle = 90f;
+
+        visualTransform.localRotation =
+            Quaternion.Euler(0f, 0f, angle);
+    }
+
+    /// <summary>
+    /// Sobreescribe la posición y dirección iniciales.
+    /// GameManager lo utiliza al crear jugadores y enemigos.
     /// </summary>
     public void SetStartPosition(Vector2Int cell, Vector2Int dir)
     {
@@ -212,10 +456,12 @@ public class LightCycleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Llamado por GameManager inmediatamente después de instanciar este
-    /// jugador o enemigo.
+    /// Asigna las dependencias al crear una entidad.
     /// </summary>
-    public void Initialize(GridManager grid, TrailManager trail, bool isPlayer)
+    public void Initialize(
+        GridManager grid,
+        TrailManager trail,
+        bool isPlayer)
     {
         gridManager = grid;
         trailManager = trail;
@@ -228,19 +474,29 @@ public class LightCycleController : MonoBehaviour
         direction = startDirection;
         queuedDirection = startDirection;
 
+        UpdateVisualRotation();
+
         transform.localScale = Vector3.one * gridManager.CellSize;
         transform.position = gridManager.GridToWorld(currentCell);
+
+        visualFromPosition = transform.position;
+        visualToPosition = transform.position;
 
         gridManager.SetCellOccupied(currentCell);
 
         OnCellEntered?.Invoke();
     }
 
+    // ---------------------------------------------------------
+    // ACTUALIZACIÓN Y MOVIMIENTO
+    // ---------------------------------------------------------
+
     private void Update()
     {
-        if (!isAlive) return;
+        if (!isAlive)
+            return;
 
-        HandleTurnInput();
+        ReadTurnInput();
 
         moveTimer += Time.deltaTime;
 
@@ -249,70 +505,115 @@ public class LightCycleController : MonoBehaviour
             moveTimer -= moveInterval;
             Step();
         }
+
+        UpdateVisualPosition();
     }
 
-    private void HandleTurnInput()
+    /// <summary>
+    /// Guarda los giros que llegan de la fuente de input. Se lee todos los
+    /// frames, pero el buffer se consume de a un giro por paso: así dos
+    /// pulsaciones rápidas dentro de la misma celda no se pisan.
+    /// </summary>
+    private void ReadTurnInput()
     {
+        if (inputProvider == null)
+            return;
+
         Vector2Int? desiredDirection = inputProvider.GetDesiredDirection();
 
         if (!desiredDirection.HasValue)
             return;
 
-        Vector2Int candidate = desiredDirection.Value;
+        if (bufferedTurns.Count >= maxBufferedTurns)
+            return;
 
-        Debug.Log(
-            $"[LightCycle] Giro recibido. " +
-            $"Dirección actual: {direction}, " +
-            $"Dirección solicitada: {candidate}"
-        );
+        bufferedTurns.Enqueue(desiredDirection.Value);
+    }
 
-        // No permitir un giro de 180 grados.
-        if (candidate == -direction)
+    /// <summary>
+    /// Toma el primer giro válido del buffer. Descarta los que sean un
+    /// reverso de la dirección actual y sigue con el siguiente, para que
+    /// una pulsación inválida no tape una válida detrás.
+    /// </summary>
+    private void ApplyBufferedTurn()
+    {
+        while (bufferedTurns.Count > 0)
         {
-            Debug.LogWarning(
-                $"[LightCycle] GIRO RECHAZADO: {candidate} es opuesto " +
-                $"a la dirección actual {direction}."
-            );
+            Vector2Int candidate = bufferedTurns.Dequeue();
+
+            // Repetir la dirección actual es válido: es seguir recto.
+            if (candidate == direction)
+            {
+                queuedDirection = candidate;
+                return;
+            }
+
+            // No permitir un giro de 180 grados.
+            if (candidate == -direction)
+                continue;
+
+            queuedDirection = candidate;
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Interpola la posición del sprite entre la celda anterior y la actual.
+    /// No se toca ninguna celda lógica: sólo la representación visual.
+    /// </summary>
+    private void UpdateVisualPosition()
+    {
+        if (!smoothVisualMovement)
+        {
+            transform.position = visualToPosition;
             return;
         }
 
-        queuedDirection = candidate;
+        float progress = moveInterval > 0.0001f
+            ? Mathf.Clamp01(moveTimer / moveInterval)
+            : 1f;
 
-        Debug.Log(
-            $"[LightCycle] Giro aceptado y encolado: {queuedDirection}."
+        transform.position = Vector3.Lerp(
+            visualFromPosition,
+            visualToPosition,
+            progress
         );
     }
 
+    /// <summary>
+    /// Ejecuta un paso de movimiento. Comprueba colisiones,
+    /// genera el rastro y actualiza la posición.
+    /// </summary>
     private void Step()
     {
+        // Aplicar como máximo un giro del buffer en este paso.
+        ApplyBufferedTurn();
         direction = queuedDirection;
 
         Vector2Int nextCell = currentCell + direction;
 
-        if (!gridManager.IsInsideGrid(nextCell) || gridManager.IsCellOccupied(nextCell))
+        // -----------------------------------------------------
+        // COMPROBACIÓN DE COLISIONES Y ESCUDO
+        // -----------------------------------------------------
+
+        if (!gridManager.IsInsideGrid(nextCell) ||
+            gridManager.IsCellOccupied(nextCell))
         {
             if (hasShield)
             {
-                // El escudo absorbe el impacto. Se consume antes de buscar
-                // una dirección alternativa, para que no se vuelva a
-                // consultar si tampoco hay salida en la dirección elegida.
                 hasShield = false;
                 OnShieldConsumed?.Invoke(this);
 
                 Vector2Int? fallback = FindFallbackDirection();
+
                 if (fallback.HasValue)
                 {
-                    // Redirigimos y continuamos — el movimiento no se
-                    // interrumpe, pero el jugador pierde el control de
-                    // su dirección por este paso.
                     queuedDirection = fallback.Value;
                     direction = queuedDirection;
                     nextCell = currentCell + direction;
                 }
                 else
                 {
-                    // Sin ninguna salida válida, el escudo no puede salvar
-                    // al participante — muere igual.
                     Die(nextCell);
                     return;
                 }
@@ -324,29 +625,61 @@ public class LightCycleController : MonoBehaviour
             }
         }
 
-        // El rastro ya no se puede apagar: siempre se deja un segmento en
-        // la celda que se abandona.
-        GameObject segment = trailManager.SpawnTrailSegment(currentCell, trailColor);
-        trailSegments.Enqueue(new TrailEntry(segment, currentCell));
+        // Actualizar la orientación después de resolver
+        // la dirección definitiva, incluyendo el escudo.
+        UpdateVisualRotation();
 
-        // Si con este nuevo segmento se superó la longitud máxima, el más
-        // viejo desaparece — visualmente y en la ocupación lógica de su
-        // celda, que vuelve a estar libre.
+        // -----------------------------------------------------
+        // GENERACIÓN DEL RASTRO
+        // -----------------------------------------------------
+
+        // El segmento conecta el centro de la celda actual
+        // con el centro de la celda a la que nos desplazamos.
+        GameObject segment = trailManager.SpawnTrailSegment(
+            currentCell,
+            nextCell,
+            trailColor
+        );
+
+        // Si hay un flash activo, el nuevo segmento también
+        // debe recibir el color temporal.
+        ApplyCurrentTrailVisualColor(segment);
+
+        trailSegments.Enqueue(
+            new TrailEntry(segment, currentCell)
+        );
+
+        // -----------------------------------------------------
+        // CONTROL DE LONGITUD MÁXIMA (FIFO)
+        // -----------------------------------------------------
+
         if (trailSegments.Count > maxTrailLength)
         {
             TrailEntry oldest = trailSegments.Dequeue();
+
             trailManager.RemoveTrailSegment(oldest.Segment);
             gridManager.ClearCellOccupied(oldest.Cell);
         }
 
+        // -----------------------------------------------------
+        // ACTUALIZAR POSICIÓN Y OCUPACIÓN
+        // -----------------------------------------------------
+
+        // La celda lógica se actualiza de inmediato. El sprite arranca en
+        // la celda anterior y se desliza hasta la nueva durante el próximo
+        // intervalo, para que el movimiento se vea continuo.
+        visualFromPosition = gridManager.GridToWorld(currentCell);
+        visualToPosition = gridManager.GridToWorld(nextCell);
+
         currentCell = nextCell;
-        transform.position = gridManager.GridToWorld(currentCell);
+
+        transform.position = smoothVisualMovement
+            ? visualFromPosition
+            : visualToPosition;
 
         gridManager.SetCellOccupied(currentCell);
 
-        // Puntos por movimiento: sólo el jugador acumula score, y sólo
-        // cuando realmente avanzó una celda — no puede explotarse estando
-        // quieto porque sin Step() exitoso no hay puntos.
+        // Puntos por movimiento: sólo el jugador en modo Waves.
         if (isPlayer && MatchConfig.GameMode == GameMode.Waves)
         {
             ScoreManager.AddMovementScore();
@@ -355,14 +688,13 @@ public class LightCycleController : MonoBehaviour
         OnCellEntered?.Invoke();
     }
 
-    // Evento estático para que ShieldEffect sepa cuándo el escudo fue
-    // consumido y pueda destruir el visual. Estático igual que OnAnyPlayerDied.
-    public static event System.Action<LightCycleController> OnShieldConsumed;
+    // ---------------------------------------------------------
+    // DIRECCIONES ALTERNATIVAS DEL ESCUDO
+    // ---------------------------------------------------------
 
     /// <summary>
-    /// Busca la primera dirección (izquierda, derecha, o derecho) que lleve
-    /// a una celda válida y libre, excluyendo el reverso de la dirección
-    /// actual (para no girar 180°). Devuelve null si todas están bloqueadas.
+    /// Busca una dirección alternativa libre, excluyendo
+    /// el reverso de la dirección actual.
     /// </summary>
     private Vector2Int? FindFallbackDirection()
     {
@@ -376,7 +708,9 @@ public class LightCycleController : MonoBehaviour
         foreach (Vector2Int candidate in candidates)
         {
             Vector2Int cell = currentCell + candidate;
-            if (gridManager.IsInsideGrid(cell) && !gridManager.IsCellOccupied(cell))
+
+            if (gridManager.IsInsideGrid(cell) &&
+                !gridManager.IsCellOccupied(cell))
             {
                 return candidate;
             }
@@ -385,11 +719,17 @@ public class LightCycleController : MonoBehaviour
         return null;
     }
 
+    // ---------------------------------------------------------
+    // DERROTA
+    // ---------------------------------------------------------
+
     private void Die(Vector2Int attemptedCell)
     {
         isAlive = false;
 
-        Debug.Log($"DERROTA: {name} chocó al intentar entrar en la celda {attemptedCell}.");
+        Debug.Log(
+            $"DERROTA: {name} chocó al intentar entrar en la celda {attemptedCell}."
+        );
 
         OnAnyPlayerDied?.Invoke(this);
 

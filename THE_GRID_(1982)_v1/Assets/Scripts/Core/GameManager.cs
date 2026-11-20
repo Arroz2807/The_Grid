@@ -22,6 +22,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private PowerUpAIConfig ambushAIConfig;
     [SerializeField] private PowerUpAIConfig randomAIConfig;
 
+    [Header("IA — Navegación")]
+    [Tooltip("Parámetros de percepción del tablero para todos los enemigos. " +
+             "null = comportamiento anterior, sin análisis de escape.")]
+    [SerializeField] private EnemyNavigationConfig navigationConfig;
+
     [Header("Spawn")]
     [Tooltip("Distancia Manhattan mínima entre el jugador y cada enemigo al spawnear.")]
     [SerializeField] private int minSpawnDistanceFromPlayer = 10;
@@ -246,7 +251,7 @@ public class GameManager : MonoBehaviour
 
         EnemyBrain brain = enemyInstance.GetComponent<EnemyBrain>();
         brain.Initialize(gridManager, EnemyBehaviorFactory.Create(type),
-                         player, powerUpSpawner, powerUpAIConfig);
+                         player, powerUpSpawner, powerUpAIConfig, navigationConfig);
 
         matchStarter?.RegisterEntity(ec);
         powerUpSpawner?.RegisterEntity(ec);
@@ -414,9 +419,9 @@ public class GameManager : MonoBehaviour
         switch (type)
         {
             case EnemyType.Chase: return Color.red;
-            case EnemyType.Predict: return Color.green;
+            case EnemyType.Predict: return Color.orange;
             case EnemyType.Ambush: return Color.magenta;
-            case EnemyType.Random: return Color.yellow;
+            case EnemyType.Random: return Color.green;
             default: return Color.white;
         }
     }

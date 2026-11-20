@@ -4,16 +4,20 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Muestra la transición entre oleadas con fade in/out suave. El score
-/// mostrado en scoreGainedText se lee de ScoreManager.LastGain, que
-/// WaveManager actualiza antes de disparar OnWaveCompleted.
+/// Muestra la transición entre oleadas con fade in/out suave.
+///
+/// Sólo es dueña de los textos de la transición ("WAVE N COMPLETE" y el
+/// countdown). El "+100" del bonus NO se escribe acá: lo muestra ScoreUI
+/// a través de ScoreManager.OnGainEvent, que WaveManager dispara al
+/// completar la oleada. Antes esta clase escribía el mismo TMP_Text que
+/// ScoreUI (ScoreGained_Text) y le animaba el alpha, por lo que apagaba
+/// los mensajes de puntos de todo el resto de la partida.
 /// </summary>
 public class WaveTransitionUI : MonoBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private GameObject transitionPanel;
     [SerializeField] private TMP_Text waveCompleteText;
-    [SerializeField] private TMP_Text scoreGainedText;
     [SerializeField] private TMP_Text countdownText;
 
     [Header("Fade")]
@@ -35,7 +39,7 @@ public class WaveTransitionUI : MonoBehaviour
         if (transitionPanel != null)
             panelImage = transitionPanel.GetComponent<Image>();
 
-        allTexts = new TMP_Text[] { waveCompleteText, scoreGainedText, countdownText };
+        allTexts = new TMP_Text[] { waveCompleteText, countdownText };
     }
 
     private void OnEnable()
@@ -68,9 +72,6 @@ public class WaveTransitionUI : MonoBehaviour
         if (waveCompleteText != null)
             waveCompleteText.gameObject.SetActive(true);
 
-        if (scoreGainedText != null)
-            scoreGainedText.gameObject.SetActive(true);
-
         if (countdownText != null)
             countdownText.gameObject.SetActive(false);
 
@@ -94,10 +95,9 @@ public class WaveTransitionUI : MonoBehaviour
         if (waveCompleteText != null)
             waveCompleteText.text = $"WAVE {completedWave} COMPLETE";
 
-        // Muestra el bonus base fijo — no el valor escalado por oleada,
-        // que aumenta cada wave y confunde al jugador.
-        if (scoreGainedText != null)
-            scoreGainedText.text = $"+{ScoreManager.BaseWaveScore}";
+        // El "+100" del bonus lo muestra ScoreUI desde OnGainEvent con el
+        // texto "+100" y la etiqueta "Wave complete". No se toca acá para
+        // no pisar el mensaje de puntos del jugador.
 
         if (countdownText != null)
             countdownText.gameObject.SetActive(false);
@@ -111,8 +111,6 @@ public class WaveTransitionUI : MonoBehaviour
 
         if (waveCompleteText != null)
             waveCompleteText.gameObject.SetActive(false);
-        if (scoreGainedText != null)
-            scoreGainedText.gameObject.SetActive(false);
         if (countdownText != null)
             countdownText.gameObject.SetActive(true);
 
@@ -130,8 +128,6 @@ public class WaveTransitionUI : MonoBehaviour
 
         if (waveCompleteText != null)
             waveCompleteText.gameObject.SetActive(true);
-        if (scoreGainedText != null)
-            scoreGainedText.gameObject.SetActive(true);
 
         SetAlpha(0f);
         WaveManager.NotifyTransitionComplete();

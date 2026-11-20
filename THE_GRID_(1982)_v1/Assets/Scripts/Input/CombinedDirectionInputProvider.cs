@@ -43,14 +43,6 @@ public class CombinedDirectionInputProvider : MonoBehaviour, IDirectionInputProv
                 "KeyboardInputProvider ni ArduinoDirectionInputProvider."
             );
         }
-        else
-        {
-            Debug.Log(
-                $"[CombinedInput] Inicializado. " +
-                $"Teclado: {keyboardProvider != null}, " +
-                $"Joystick: {arduinoProvider != null}."
-            );
-        }
     }
 
     public Vector2Int? GetDesiredDirection()
@@ -74,22 +66,6 @@ public class CombinedDirectionInputProvider : MonoBehaviour, IDirectionInputProv
         // El joystick tiene prioridad si produjo una dirección nueva.
         if (joystickDirection.HasValue)
         {
-            if (keyboardDirection.HasValue)
-            {
-                Debug.Log(
-                    "[CombinedInput] Coincidieron joystick y teclado. " +
-                    $"Gana el joystick: {joystickDirection.Value}; " +
-                    $"se descarta el teclado: {keyboardDirection.Value}."
-                );
-            }
-            else
-            {
-                Debug.Log(
-                    $"[CombinedInput] Dirección seleccionada del joystick: " +
-                    $"{joystickDirection.Value}."
-                );
-            }
-
             AudioManager.Instance?.PlaySfx(SfxId.Turn);
             return joystickDirection;
         }
@@ -97,11 +73,6 @@ public class CombinedDirectionInputProvider : MonoBehaviour, IDirectionInputProv
         // Si el joystick no tiene una dirección nueva, usamos el teclado.
         if (keyboardDirection.HasValue)
         {
-            Debug.Log(
-                $"[CombinedInput] Dirección seleccionada del teclado: " +
-                $"{keyboardDirection.Value}."
-            );
-
             AudioManager.Instance?.PlaySfx(SfxId.Turn);
             return keyboardDirection;
         }

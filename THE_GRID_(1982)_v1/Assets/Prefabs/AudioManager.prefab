@@ -243,5 +243,10 @@ MonoBehaviour:
   musicSource: {fileID: 1004418825528597518}
   sfxSource: {fileID: 1833045223057720198}
   soundLibrary: {fileID: 11400000, guid: 72c02e8effeb9b040b10712e6bf68a05, type: 2}
-  victoryMusic: {fileID: 8300000, guid: 856fae60ddc84664aaec393928c62451, type: 3}
-  defeatMusic: {fileID: 8300000, guid: 11c8338447adb584f9e5fc4bb0a1c0f9, type: 3}
+  musicVolume: 0.4
+  sfxVolume: 0.8
+  menuMusicMultiplier: 0.7
+  gameplayMusicMultiplier: 0.4
+  fadeInDuration: 1.2
+  fadeOutDuration: 1.2
+  resultMusicFadeOutDuration: 0.25

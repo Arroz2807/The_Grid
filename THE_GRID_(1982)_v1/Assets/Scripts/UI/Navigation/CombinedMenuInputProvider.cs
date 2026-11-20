@@ -21,9 +21,12 @@ public class CombinedMenuInputProvider : MonoBehaviour, IMenuInputProvider
     private char previousDirection = 'N';
     private float repeatTimer;
 
+    // Indica que el joystick debe volver a neutral
+    // antes de poder generar nuevas acciones.
+    private bool waitingForNeutral;
+
     private void Awake()
     {
-        // El teclado se busca en este objeto o en sus hijos.
         keyboardProvider = GetComponentInChildren<KeyboardMenuInput>();
 
         if (keyboardProvider == null)
@@ -33,6 +36,20 @@ public class CombinedMenuInputProvider : MonoBehaviour, IMenuInputProvider
                 "El menú podrá utilizar el joystick, pero no el teclado."
             );
         }
+    }
+
+    /// <summary>
+    /// Bloquea temporalmente la navegación mediante joystick.
+    /// Se libera cuando el hardware vuelve a neutral.
+    ///
+    /// No bloquea el teclado ni modifica el estado del Arduino.
+    /// </summary>
+    public void RequireJoystickNeutral()
+    {
+        waitingForNeutral = true;
+
+        previousDirection = 'N';
+        repeatTimer = 0f;
     }
 
     public MenuAction GetAction()
@@ -46,24 +63,37 @@ public class CombinedMenuInputProvider : MonoBehaviour, IMenuInputProvider
             return MenuAction.Confirm;
         }
 
-        // 2. Comprobar la dirección mantenida del joystick.
+        // 2. Comprobar el joystick.
         if (serialManager != null)
         {
             char currentDirection = serialManager.GetHeldDirection();
 
-            MenuAction joystickAction = GetJoystickAction(currentDirection);
+            // Esperar a que el joystick vuelva al centro.
+            if (waitingForNeutral)
+            {
+                if (currentDirection == 'N')
+                {
+                    waitingForNeutral = false;
+                    previousDirection = 'N';
+                    repeatTimer = 0f;
+                }
+            }
+            else
+            {
+                MenuAction joystickAction = GetJoystickAction(currentDirection);
 
-            if (joystickAction != MenuAction.None)
-                return joystickAction;
+                if (joystickAction != MenuAction.None)
+                    return joystickAction;
+            }
         }
         else
         {
-            // Si no hay administrador, reiniciar el estado del joystick.
             previousDirection = 'N';
             repeatTimer = 0f;
+            waitingForNeutral = false;
         }
 
-        // 3. Si el joystick no genera una acción, consultar el teclado.
+        // 3. Consultar el teclado.
         if (keyboardProvider != null)
         {
             return keyboardProvider.GetAction();
@@ -78,7 +108,6 @@ public class CombinedMenuInputProvider : MonoBehaviour, IMenuInputProvider
     /// </summary>
     private MenuAction GetJoystickAction(char direction)
     {
-        // Si el joystick volvió al centro, detener la repetición.
         if (direction == 'N')
         {
             previousDirection = 'N';
@@ -86,7 +115,6 @@ public class CombinedMenuInputProvider : MonoBehaviour, IMenuInputProvider
             return MenuAction.None;
         }
 
-        // Ignorar caracteres que no representen direcciones.
         if (direction != 'L' &&
             direction != 'R' &&
             direction != 'U' &&
@@ -104,7 +132,7 @@ public class CombinedMenuInputProvider : MonoBehaviour, IMenuInputProvider
             return ConvertDirection(direction);
         }
 
-        // Si sigue manteniendo la misma dirección, iniciar repetición.
+        // Repetición de la dirección mantenida.
         repeatTimer -= Time.deltaTime;
 
         if (repeatTimer <= 0f)

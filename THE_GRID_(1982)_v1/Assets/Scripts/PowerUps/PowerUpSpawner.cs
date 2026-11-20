@@ -174,14 +174,16 @@ public class PowerUpSpawner : MonoBehaviour
 
         effect.Remove();
 
+        // Si mientras tanto se recogió otro power-up, este efecto ya no es
+        // el activo: no hay que avisar al HUD que el nuevo terminó.
         if (activeEffects.TryGetValue(target, out PowerUpEffect current) && current == effect)
         {
             activeEffects.Remove(target);
-        }
 
-        if (target != null && target.IsPlayer)
-        {
-            OnPlayerEffectEnded?.Invoke();
+            if (target != null && target.IsPlayer)
+            {
+                OnPlayerEffectEnded?.Invoke();
+            }
         }
     }
 

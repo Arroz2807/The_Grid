@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 /// <summary>
@@ -12,19 +13,25 @@ public class PowerUpDefinition : ScriptableObject
 {
     [Header("Identidad")]
     public PowerUpType type;
+
     [Tooltip("Nombre visible en UI.")]
     public string displayName;
 
     [Header("Visual en escenario")]
     [Tooltip("Prefab que aparece en la grilla. Debe tener un PowerUpPickup.")]
     public GameObject pickupPrefab;
-    [Tooltip("Color del objeto en la grilla.")]
+
+    [Tooltip("Sprite que representa este tipo de Power-Up en la grilla.")]
+    public Sprite pickupSprite;
+
+    [Tooltip("Color utilizado para los efectos visuales de recolección.")]
     public Color color = Color.white;
 
     [Header("Aparición")]
     [Tooltip("Peso relativo de aparición. Mayor = más frecuente que los otros tipos.")]
     [Min(0)]
     public float spawnWeight = 1f;
+
     [Tooltip("Si false, este tipo nunca aparece aunque esté en la lista del spawner.")]
     public bool enabled = true;
 
@@ -32,8 +39,10 @@ public class PowerUpDefinition : ScriptableObject
     [Tooltip("Duración del efecto en segundos. 0 = instantáneo o permanente (ej: Escudo, TrailExtension).")]
     [Min(0)]
     public float duration = 5f;
+
     [Tooltip("Magnitud del efecto. Turbo: multiplicador de velocidad (ej: 1.5 = 50% más rápido). TrailExtension: segmentos a agregar (ej: 10).")]
     public float magnitude = 1f;
+
     [Tooltip("Sólo para TrailExtension: tope máximo de segmentos de rastro que puede tener un participante. Ignorado por los demás tipos.")]
     [Min(1)]
     public int trailLengthCap = 50;
